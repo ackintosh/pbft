@@ -3,8 +3,14 @@ extern crate serde_derive;
 
 fn main() {
     println!("Hello, PBFT!");
-    let c = read_config();
-    println!("{:?}", c);
+    let config = match read_config() {
+        Ok(c) => c,
+        Err(e) => {
+            println!("{}", e);
+            std::process::exit(1);
+        }
+    };
+    println!("{:?}", config);
 }
 
 
