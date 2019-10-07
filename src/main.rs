@@ -28,4 +28,13 @@ fn main() {
             std::process::exit(1);
         }
     };
+
+    if config.is_primary(&port) {
+        println!("Running as primary node");
+    } else if config.is_backup(&port) {
+        println!("Running as backup node");
+    } else {
+        println!("The port number is not exist current p2p network: {:?}", port);
+        std::process::exit(1);
+    }
 }

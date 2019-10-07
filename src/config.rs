@@ -6,7 +6,23 @@ pub struct Config {
     primary: Port,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl Config {
+    pub fn is_primary(&self, port: &Port) -> bool {
+        self.primary.port == port.port
+    }
+
+    pub fn is_backup(&self, port: &Port) -> bool {
+        self.backup_nodes().contains(&port)
+    }
+
+    fn backup_nodes(&self) -> Vec<&Port> {
+        self.nodes.iter().filter(|n| {
+            !self.is_primary(n)
+        }).collect()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Port {
     port: u64,
 }
