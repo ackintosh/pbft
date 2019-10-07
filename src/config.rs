@@ -7,8 +7,15 @@ pub struct Config {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Port {
+pub struct Port {
     port: u64,
+}
+
+impl From<&String> for Port {
+    fn from(p: &String) -> Self {
+        let port: u64 = p.parse().expect("Failed to port as u64");
+        Port { port }
+    }
 }
 
 pub fn read_config() -> Result<Config, ConfigError> {

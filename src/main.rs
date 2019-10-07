@@ -1,3 +1,5 @@
+use crate::config::Port;
+
 mod config;
 
 fn main() {
@@ -11,10 +13,10 @@ fn main() {
         std::process::exit(1);
     }
 
-    let port: u64 = args
+    let port: Port = args
         .get(1).expect("Failed to get port number via CLI arguments")
-        .parse().expect("Failed to parse the argument as port number");
-    println!("port: {}", port);
+        .into();
+    println!("{:?}", port);
 
     let config = match config::read_config() {
         Ok(c) => {
