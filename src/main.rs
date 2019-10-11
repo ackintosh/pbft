@@ -34,7 +34,7 @@ fn main() {
     } else if config.is_backup(&port) {
         println!("Running as backup node");
     } else {
-        println!("The port number is not exist current p2p network: {:?}", port);
+        println!("The port number does not exist in current p2p network: {:?}", port);
         std::process::exit(1);
     }
 }
