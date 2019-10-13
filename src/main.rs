@@ -37,7 +37,7 @@ fn main() {
     let current_type = match CurrentType::from(&config, &port) {
         Ok(c) => Arc::new(RwLock::new(c)),
         Err(_) => {
-            println!("The port number does not exist in current p2p network: {:?}", port);
+            println!("The port number does not exist in the p2p network configuration: {:?}", port);
             std::process::exit(1);
         }
     };
