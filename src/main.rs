@@ -1,8 +1,11 @@
 use crate::config::Port;
 use crate::request_handler::RequestHandler;
+use std::sync::{Arc, RwLock};
+use crate::node_type::CurrentType;
 
 mod config;
 mod request_handler;
+mod node_type;
 
 fn main() {
     println!("Hello, PBFT!");
@@ -31,13 +34,13 @@ fn main() {
         }
     };
 
-    if config.is_primary(&port) {
-        println!("Running as primary node");
-        RequestHandler::new(config, port).listen();
-    } else if config.is_backup(&port) {
-        println!("Running as backup node");
-    } else {
-        println!("The port number does not exist in current p2p network: {:?}", port);
-        std::process::exit(1);
-    }
+    let current_type = match CurrentType::from(&config, &port) {
+        Ok(c) => Arc::new(RwLock::new(c)),
+        Err(_) => {
+            println!("The port number does not exist in current p2p network: {:?}", port);
+            std::process::exit(1);
+        }
+    };
+
+    RequestHandler::new(config, port, current_type).listen();
 }

@@ -1,14 +1,21 @@
 use crate::config::{Config, Port};
 use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, RwLock};
+use crate::node_type::CurrentType;
 
 pub struct RequestHandler {
     config: Config,
     port: Port,
+    current_type: Arc<RwLock<CurrentType>>
 }
 
 impl RequestHandler {
-    pub fn new(config: Config, port: Port) -> Self {
-        Self { config, port }
+    pub fn new(config: Config, port: Port, current_type: Arc<RwLock<CurrentType>>) -> Self {
+        {
+            let ct = current_type.read().unwrap();
+            println!("RequestHandler has been initialized as {} replica", ct);
+        }
+        Self { config, port, current_type }
     }
 
     pub fn listen(&self) {
