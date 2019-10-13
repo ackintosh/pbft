@@ -2,10 +2,13 @@ use crate::config::Port;
 use crate::request_handler::RequestHandler;
 use std::sync::{Arc, RwLock};
 use crate::node_type::CurrentType;
+use crate::state::State;
 
 mod config;
 mod request_handler;
+mod state;
 mod node_type;
+mod message;
 
 fn main() {
     println!("Hello, PBFT!");
@@ -41,6 +44,8 @@ fn main() {
             std::process::exit(1);
         }
     };
+
+    let _state = State::new();
 
     RequestHandler::new(config, port, current_type).listen();
 }
