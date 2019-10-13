@@ -8,7 +8,7 @@ pub struct Config {
 
 impl Config {
     pub fn is_primary(&self, port: &Port) -> bool {
-        self.primary.port == port.port
+        self.primary.value == port.value
     }
 
     pub fn is_backup(&self, port: &Port) -> bool {
@@ -24,13 +24,20 @@ impl Config {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Port {
-    port: u64,
+    #[serde(alias = "port")]
+    value: u64,
+}
+
+impl Port {
+    pub fn value(&self) -> u64 {
+        self.value
+    }
 }
 
 impl From<&String> for Port {
     fn from(p: &String) -> Self {
         let port: u64 = p.parse().expect("Failed to port as u64");
-        Port { port }
+        Port { value: port }
     }
 }
 

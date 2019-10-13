@@ -1,6 +1,8 @@
 use crate::config::Port;
+use crate::request_handler::RequestHandler;
 
 mod config;
+mod request_handler;
 
 fn main() {
     println!("Hello, PBFT!");
@@ -31,6 +33,7 @@ fn main() {
 
     if config.is_primary(&port) {
         println!("Running as primary node");
+        RequestHandler::new(config, port).listen();
     } else if config.is_backup(&port) {
         println!("Running as backup node");
     } else {
