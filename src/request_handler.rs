@@ -24,6 +24,10 @@ impl RequestHandler {
         let listener = TcpListener::bind(address).unwrap();
 
         for stream in listener.incoming() {
+            if self.current_type.read().unwrap().is_backup() {
+                println!("Now the replica is running as BACKUP.");
+                continue;
+            }
             self.handle(&stream.unwrap());
         }
     }

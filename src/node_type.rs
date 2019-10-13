@@ -1,6 +1,6 @@
 use crate::config::{Config, Port};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum NodeType {
     Primary,
     Backup,
@@ -30,6 +30,10 @@ impl CurrentType {
         } else {
             Err(())
         }
+    }
+
+    pub fn is_backup(&self) -> bool {
+        self.node_type == NodeType::Backup
     }
 }
 
