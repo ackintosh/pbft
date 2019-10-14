@@ -6,7 +6,7 @@ use std::io::Read;
 use crate::message::{Request, PrePrepareSequence, PrePrepare};
 use crate::state::State;
 
-pub struct RequestHandler {
+pub struct MessageHandler {
     config: Config,
     port: Port,
     current_type: Arc<RwLock<CurrentType>>,
@@ -14,7 +14,7 @@ pub struct RequestHandler {
     pre_prepare_sequence: PrePrepareSequence,
 }
 
-impl RequestHandler {
+impl MessageHandler {
     pub fn new(
         config: Config,
         port: Port,
@@ -23,7 +23,7 @@ impl RequestHandler {
     ) -> Self {
         {
             let ct = current_type.read().unwrap();
-            println!("RequestHandler has been initialized as {} replica", ct);
+            println!("MessageHandler has been initialized as {} replica", ct);
         }
         Self {
             config,
@@ -36,7 +36,7 @@ impl RequestHandler {
 
     pub fn listen(&mut self) {
         let address = format!("127.0.0.1:{}", self.port.value());
-        println!("RequestHandler is listening on {}", address);
+        println!("MessageHandler is listening on {}", address);
         let listener = TcpListener::bind(address).unwrap();
 
         for stream in listener.incoming() {

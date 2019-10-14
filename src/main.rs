@@ -1,11 +1,11 @@
 use crate::config::Port;
-use crate::request_handler::RequestHandler;
+use crate::message_handler::MessageHandler;
 use std::sync::{Arc, RwLock};
 use crate::node_type::CurrentType;
 use crate::state::State;
 
 mod config;
-mod request_handler;
+mod message_handler;
 mod state;
 mod node_type;
 mod message;
@@ -48,7 +48,7 @@ fn main() {
 
     let state = Arc::new(RwLock::new(State::new()));
 
-    RequestHandler::new(
+    MessageHandler::new(
         config,
         port,
         current_type,
