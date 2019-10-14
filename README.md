@@ -15,5 +15,5 @@ Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
 
-{"operation":"testOperation","timestamp":1}
+{"type": "ClientRequest", "payload": "{\"operation\":\"testOperation\",\"timestamp\":1}"}
 ```

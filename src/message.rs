@@ -2,6 +2,24 @@ use serde::{Serialize, Deserialize};
 use blake2::{Blake2b, Digest};
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct Message {
+    pub r#type: MessageType,
+    payload: String,
+}
+
+impl Message {
+    pub fn from(s: &String) -> Self {
+        serde_json::from_str(s).unwrap()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum MessageType {
+    ClientRequest,
+    PrePrepare,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ClientRequest {
     operation: String,
     timestamp: u64,
@@ -15,6 +33,12 @@ impl ClientRequest {
 
     pub fn operation(&self) -> String {
         self.operation.clone()
+    }
+}
+
+impl From<Message> for ClientRequest {
+    fn from(m: Message) -> Self {
+        serde_json::from_str(&m.payload).unwrap()
     }
 }
 
@@ -46,7 +70,9 @@ impl PrePrepareSequence {
     }
 
     pub fn increment(&mut self) {
-        self.value += 1
+        let from = self.value.clone();
+        self.value += 1;
+        println!("PrePrepareSequence has been incremented from {} to {}", from, self.value);
     }
 
     pub fn value(&self) -> u64 {
