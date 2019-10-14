@@ -2,13 +2,13 @@ use serde::{Serialize, Deserialize};
 use blake2::{Blake2b, Digest};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Request {
+pub struct ClientRequest {
     operation: String,
     timestamp: u64,
     client: Option<String>,
 }
 
-impl Request {
+impl ClientRequest {
     pub fn from(s: &String) -> Self {
         serde_json::from_str(s).unwrap()
     }

@@ -3,7 +3,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, RwLock};
 use crate::node_type::CurrentType;
 use std::io::Read;
-use crate::message::{Request, PrePrepareSequence, PrePrepare};
+use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare};
 use crate::state::State;
 
 pub struct MessageHandler {
@@ -54,7 +54,7 @@ impl MessageHandler {
         let size = stream.read(&mut buffer).unwrap();
         let body = String::from_utf8_lossy(&buffer[..size]).to_string();
 
-        let request= Request::from(&body);
+        let request= ClientRequest::from(&body);
         println!("{:?}", request);
 
         // TODO: multicast the request to backup replicas
