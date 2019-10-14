@@ -9,6 +9,7 @@ mod request_handler;
 mod state;
 mod node_type;
 mod message;
+mod view;
 
 fn main() {
     println!("Hello, PBFT!");
