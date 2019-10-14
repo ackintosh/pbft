@@ -13,4 +13,8 @@ impl State {
             current_view: Arc::new(RwLock::new(View::new()))
         }
     }
+
+    pub fn current_view(&self) -> u64 {
+        self.current_view.read().unwrap().value()
+    }
 }

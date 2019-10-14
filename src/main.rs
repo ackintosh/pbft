@@ -46,7 +46,12 @@ fn main() {
         }
     };
 
-    let _state = State::new();
+    let state = Arc::new(RwLock::new(State::new()));
 
-    RequestHandler::new(config, port, current_type).listen();
+    RequestHandler::new(
+        config,
+        port,
+        current_type,
+        state
+    ).listen();
 }
