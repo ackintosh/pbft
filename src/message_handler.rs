@@ -44,7 +44,7 @@ impl MessageHandler {
         }
     }
 
-    fn handle(&mut self, mut stream: &TcpStream) {
+    fn handle(&mut self, mut stream: &TcpStream) -> Result<(), String> {
         let mut buffer = [0u8; 512];
         let size = stream.read(&mut buffer).unwrap();
         let body = String::from_utf8_lossy(&buffer[..size]).to_string();
@@ -62,9 +62,15 @@ impl MessageHandler {
                  }
             },
             MessageType::PrePrepare => {
-                // TODO
+                if self.current_type.read().unwrap().is_backup() {
+                    self.handle_pre_prepare(message.into())?;
+                } else {
+                    println!("Something wrong! : PRIMARY replica received a PrePrepare message.")
+                }
             },
         }
+
+        Ok(())
     }
 
     fn handle_client_request(&mut self, request: ClientRequest) {
@@ -102,6 +108,35 @@ impl MessageHandler {
                 Err(e) => println!("Failed to connect to the node: {:?}, error: {:?}", node, e)
             }
         }
+    }
+
+    fn handle_pre_prepare(&self, pre_prepare: PrePrepare) -> Result<(), String> {
+        println!("PrePrepare: {:?}", pre_prepare);
+
+        self.validate_pre_prepare(pre_prepare)?;
+
+        Ok(())
+    }
+
+    fn validate_pre_prepare(&self, pre_prepare: PrePrepare) -> Result<(), String> {
+        // TODO: the signatures in the request and the pre-prepare message are correct
+
+        // _d_ is the digest for _m_
+        pre_prepare.validate_digest()?;
+
+        // it is in view _v_
+        {
+            let current_view = self.state.read().unwrap().current_view();
+            if pre_prepare.view() != current_view {
+                return Err(format!("view number isn't matched. message: {}, state: {}", pre_prepare.view(), current_view));
+            }
+        }
+
+        // TODO: it has not accepted a pre-prepare message for view _v_ and sequence number _n_ containing a different digest
+
+        // TODO: the sequence number in the pre-prepare message is between a low water mark, _h_, and a high water mark, _H_
+
+        Ok(())
     }
 }
 
