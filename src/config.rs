@@ -15,7 +15,7 @@ impl Config {
         self.backup_nodes().contains(&port)
     }
 
-    fn backup_nodes(&self) -> Vec<&Port> {
+    pub fn backup_nodes(&self) -> Vec<&Port> {
         self.nodes.iter().filter(|n| {
             !self.is_primary(n)
         }).collect()
@@ -38,6 +38,12 @@ impl From<&String> for Port {
     fn from(p: &String) -> Self {
         let port: u64 = p.parse().expect("Failed to port as u64");
         Port { value: port }
+    }
+}
+
+impl std::fmt::Display for Port {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 

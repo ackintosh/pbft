@@ -8,8 +8,18 @@ pub struct Message {
 }
 
 impl Message {
+    pub fn new(r#type: MessageType, payload: String) -> Self {
+        Self {r#type, payload}
+    }
+
     pub fn from(s: &String) -> Self {
         serde_json::from_str(s).unwrap()
+    }
+}
+
+impl std::fmt::Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
     }
 }
 
@@ -42,7 +52,7 @@ impl From<Message> for ClientRequest {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PrePrepare {
     // view indicates the view in which the message is being sent
     view: u64,
@@ -57,6 +67,12 @@ impl PrePrepare {
         let hash = Blake2b::digest(message.as_bytes());
         let digest = format!("{:x}", hash);
         Self { view, n, digest }
+    }
+}
+
+impl std::fmt::Display for PrePrepare {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
     }
 }
 
