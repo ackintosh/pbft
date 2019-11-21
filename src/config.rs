@@ -8,14 +8,14 @@ pub struct Config {
 
 impl Config {
     pub fn is_primary(&self, port: &Port) -> bool {
-        self.primary.port == port.port
+        self.primary.value == port.value
     }
 
     pub fn is_backup(&self, port: &Port) -> bool {
         self.backup_nodes().contains(&port)
     }
 
-    fn backup_nodes(&self) -> Vec<&Port> {
+    pub fn backup_nodes(&self) -> Vec<&Port> {
         self.nodes.iter().filter(|n| {
             !self.is_primary(n)
         }).collect()
@@ -24,13 +24,26 @@ impl Config {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Port {
-    port: u64,
+    #[serde(alias = "port")]
+    value: u64,
+}
+
+impl Port {
+    pub fn value(&self) -> u64 {
+        self.value
+    }
 }
 
 impl From<&String> for Port {
     fn from(p: &String) -> Self {
         let port: u64 = p.parse().expect("Failed to port as u64");
-        Port { port }
+        Port { value: port }
+    }
+}
+
+impl std::fmt::Display for Port {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
