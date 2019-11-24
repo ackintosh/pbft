@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use blake2::{Blake2b, Digest};
+use crate::config::Port;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
@@ -27,6 +28,7 @@ impl std::fmt::Display for Message {
 pub enum MessageType {
     ClientRequest,
     PrePrepare,
+    Prepare,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,19 +62,46 @@ pub struct PrePrepare {
     n: u64,
     // client message's digest
     digest: String,
+    // client message
+    message: String,
 }
 
 impl PrePrepare {
+    pub fn view(&self) -> u64 {
+        self.view
+    }
+
+    pub fn n(&self) -> u64 {
+        self.n
+    }
+
+    pub fn digest(&self) -> &String {
+        &self.digest
+    }
+
     pub fn from(view: u64, n: u64, message: String) -> Self {
-        let hash = Blake2b::digest(message.as_bytes());
-        let digest = format!("{:x}", hash);
-        Self { view, n, digest }
+        let digest = digest(message.as_bytes());
+        Self { view, n, digest, message }
+    }
+
+    pub fn validate_digest(&self) -> Result<(), String> {
+        if self.digest == digest(&self.message.as_bytes()) {
+            Ok(())
+        } else {
+            Err(format!("The digest is not matched with message. digest: {}, message: {}", self.digest, self.message))
+        }
     }
 }
 
 impl std::fmt::Display for PrePrepare {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
+}
+
+impl From<Message> for PrePrepare {
+    fn from(m: Message) -> Self {
+        serde_json::from_str(&m.payload).unwrap()
     }
 }
 
@@ -94,4 +123,46 @@ impl PrePrepareSequence {
     pub fn value(&self) -> u64 {
         self.value
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Prepare {
+    view: u64,
+    n: u64,
+    digest: String,
+    i: Port,
+}
+
+impl Prepare {
+    pub fn new(pre_prepare: &PrePrepare, i: &Port) -> Self {
+        Self {
+            view: pre_prepare.view,
+            n: pre_prepare.n,
+            digest: pre_prepare.digest.clone(),
+            i: i.clone(),
+        }
+    }
+
+    pub fn view(&self) -> u64 {
+        self.view
+    }
+
+    pub fn n(&self) -> u64 {
+        self.n
+    }
+
+    pub fn i(&self) -> Port {
+        self.i.clone()
+    }
+}
+
+impl std::fmt::Display for Prepare {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
+}
+
+fn digest(message: &[u8]) -> String {
+    let hash = Blake2b::digest(message);
+    format!("{:x}", hash)
 }
