@@ -70,6 +70,9 @@ impl PrePrepare {
     pub fn view(&self) -> u64 {
         self.view
     }
+    pub fn n(&self) -> u64 {
+        self.n
+    }
 
     pub fn from(view: u64, n: u64, message: String) -> Self {
         let digest = digest(message.as_bytes());

@@ -120,9 +120,9 @@ impl MessageHandler {
 
         // If backup replica accepts the message, it enters the prepare phase by multicasting a PREPARE message to
         // all other replicas and adds both messages to its log.
-
         let prepare = Prepare::new(&pre_prepare, &self.port);
         self.send_prepare(prepare);
+        self.state.write().unwrap().insert_pre_prepare(pre_prepare);
         Ok(())
     }
 
