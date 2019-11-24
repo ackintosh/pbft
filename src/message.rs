@@ -70,8 +70,13 @@ impl PrePrepare {
     pub fn view(&self) -> u64 {
         self.view
     }
+
     pub fn n(&self) -> u64 {
         self.n
+    }
+
+    pub fn digest(&self) -> &String {
+        &self.digest
     }
 
     pub fn from(view: u64, n: u64, message: String) -> Self {

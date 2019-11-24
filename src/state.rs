@@ -49,4 +49,8 @@ impl State {
             .or_insert(HashMap::new());
         p.insert(prepare.i(), prepare);
     }
+
+    pub fn get_pre_prepare(&self, pre_prepare: &PrePrepare) -> Option<&PrePrepare> {
+        self.pre_prepares.get(&PrePrepareKey(pre_prepare.view(), pre_prepare.n()))
+    }
 }

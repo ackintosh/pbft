@@ -136,15 +136,24 @@ impl MessageHandler {
         // _d_ is the digest for _m_
         pre_prepare.validate_digest()?;
 
-        // it is in view _v_
         {
-            let current_view = self.state.read().unwrap().current_view();
+            // it is in view _v_
+            let state = self.state.read().unwrap();
+            let current_view = state.current_view();
             if pre_prepare.view() != current_view {
                 return Err(format!("view number isn't matched. message: {}, state: {}", pre_prepare.view(), current_view));
             }
-        }
 
-        // TODO: it has not accepted a pre-prepare message for view _v_ and sequence number _n_ containing a different digest
+            // it has not accepted a pre-prepare message for view _v_ and sequence number _n_ containing a different digest
+            match state.get_pre_prepare(pre_prepare) {
+                Some(stored_pre_prepare) => {
+                    if pre_prepare.digest() != stored_pre_prepare.digest() {
+                        return Err(format!("The pre-prepare key has already stored into logs and its digest dont match. message: {}, stored message: {}", pre_prepare, stored_pre_prepare));
+                    }
+                }
+                None => {}
+            }
+        }
 
         // TODO: the sequence number in the pre-prepare message is between a low water mark, _h_, and a high water mark, _H_
 
