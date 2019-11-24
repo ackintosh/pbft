@@ -28,7 +28,7 @@ impl Config {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Serialize, Deserialize, PartialEq)]
 pub struct Port {
     #[serde(alias = "port")]
     value: u64,

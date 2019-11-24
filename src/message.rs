@@ -120,7 +120,7 @@ impl PrePrepareSequence {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Prepare {
     view: u64,
     n: u64,
@@ -136,6 +136,18 @@ impl Prepare {
             digest: pre_prepare.digest.clone(),
             i: i.clone(),
         }
+    }
+
+    pub fn view(&self) -> u64 {
+        self.view
+    }
+
+    pub fn n(&self) -> u64 {
+        self.n
+    }
+
+    pub fn i(&self) -> Port {
+        self.i.clone()
     }
 }
 
