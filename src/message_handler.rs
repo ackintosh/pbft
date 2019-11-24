@@ -83,14 +83,14 @@ impl MessageHandler {
         // In the pre-prepare phase, the primary assigns a sequence number, n, to the request
         self.pre_prepare_sequence.increment();
 
-        let pre_prepare_message = PrePrepare::from(
+        let pre_prepare = PrePrepare::from(
             self.state.read().unwrap().current_view(),
             self.pre_prepare_sequence.value(),
             request.operation()
         );
-        println!("PrePrepare: {:?}", pre_prepare_message);
-        self.send_pre_prepare(&pre_prepare_message);
-
+        println!("PrePrepare: {:?}", pre_prepare);
+        self.send_pre_prepare(&pre_prepare);
+        self.handle_pre_prepare(pre_prepare);
     }
 
     fn send_pre_prepare(&self, pre_prepare: &PrePrepare) {
