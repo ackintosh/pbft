@@ -20,9 +20,15 @@ impl Config {
             !self.is_primary(n)
         }).collect()
     }
+
+    pub fn all_nodes_without_me(&self, me: &Port) -> Vec<&Port> {
+        self.nodes.iter().filter(|n| {
+            n.value != me.value
+        }).collect()
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Port {
     #[serde(alias = "port")]
     value: u64,

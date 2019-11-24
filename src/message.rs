@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use blake2::{Blake2b, Digest};
+use crate::config::Port;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
@@ -27,6 +28,7 @@ impl std::fmt::Display for Message {
 pub enum MessageType {
     ClientRequest,
     PrePrepare,
+    Prepare,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,6 +114,31 @@ impl PrePrepareSequence {
 
     pub fn value(&self) -> u64 {
         self.value
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Prepare {
+    view: u64,
+    n: u64,
+    digest: String,
+    i: Port,
+}
+
+impl Prepare {
+    pub fn new(pre_prepare: &PrePrepare, i: &Port) -> Self {
+        Self {
+            view: pre_prepare.view,
+            n: pre_prepare.n,
+            digest: pre_prepare.digest.clone(),
+            i: i.clone(),
+        }
+    }
+}
+
+impl std::fmt::Display for Prepare {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
     }
 }
 
