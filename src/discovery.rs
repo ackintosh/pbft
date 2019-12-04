@@ -8,7 +8,7 @@ use crate::protocol::{Pbft, PbftEvent};
 #[derive(NetworkBehaviour)]
 pub struct Discovery<TSubstream: AsyncRead + AsyncWrite> {
     mdns: Mdns<TSubstream>,
-    pbft: Pbft<TSubstream>,
+    pub pbft: Pbft<TSubstream>,
     #[behaviour(ignore)]
     nodes: Arc<RwLock<HashSet<PeerId>>>,
 }
@@ -32,7 +32,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventPro
                 for (peer_id, addr) in list {
                     if self.nodes.write().unwrap().insert(peer_id.clone()) {
                         println!("The node has been discovered: {:?}", addr);
-                        self.pbft.add_address(&peer_id);
+                        self.pbft.add_peer(&peer_id);
                     }
                 }
             },

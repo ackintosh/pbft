@@ -5,6 +5,9 @@ use crate::node_type::CurrentType;
 use std::io::{Read, Write};
 use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Message, MessageType, Prepare};
 use crate::state::State;
+use std::collections::VecDeque;
+use crate::protocol::Pbft;
+use tokio::prelude::{AsyncRead, AsyncWrite};
 
 pub struct MessageHandler {
     config: Config,
@@ -12,6 +15,7 @@ pub struct MessageHandler {
     current_type: Arc<RwLock<CurrentType>>,
     state: Arc<RwLock<State>>,
     pre_prepare_sequence: PrePrepareSequence,
+    client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
 }
 
 impl MessageHandler {
@@ -19,7 +23,8 @@ impl MessageHandler {
         config: Config,
         port: Port,
         current_type: Arc<RwLock<CurrentType>>,
-        state: Arc<RwLock<State>>
+        state: Arc<RwLock<State>>,
+        client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
     ) -> Self {
         {
             let ct = current_type.read().unwrap();
@@ -31,6 +36,7 @@ impl MessageHandler {
             current_type,
             state,
             pre_prepare_sequence: PrePrepareSequence::new(),
+            client_requests,
         }
     }
 
@@ -58,7 +64,8 @@ impl MessageHandler {
                      println!("Now the replica is running as BACKUP.");
                      // TODO: transfer the message to primary replica
                  } else {
-                     self.handle_client_request(message.into());
+                     self.client_requests.write().unwrap().push_back(message.into());
+//                     self.handle_client_request(message.into());
                  }
             },
             MessageType::PrePrepare => {

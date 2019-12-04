@@ -11,6 +11,7 @@ use futures::Poll;
 use libp2p::{PeerId, InboundUpgrade, OutboundUpgrade};
 use futures::future::FutureResult;
 use std::collections::{VecDeque, HashSet};
+use crate::message::ClientRequest;
 
 #[derive(Clone)]
 pub struct Name;
@@ -23,6 +24,7 @@ impl ProtocolName for Name {
 
 pub struct Pbft<TSubstream> {
     connected_peers: HashSet<PeerId>,
+    client_requests: VecDeque<ClientRequest>,
     queued_events: VecDeque<NetworkBehaviourAction<Void, PbftEvent>>,
     _marker: std::marker::PhantomData<TSubstream>,
 }
@@ -31,16 +33,22 @@ impl<TSubstream> Pbft<TSubstream> {
     pub fn new() -> Self {
         Self {
             connected_peers: HashSet::new(),
+            client_requests: VecDeque::with_capacity(100), // FIXME
             queued_events: VecDeque::with_capacity(100), // FIXME
             _marker: std::marker::PhantomData,
         }
     }
 
-    pub fn add_address(&mut self, peer_id: &PeerId) {
+    pub fn add_peer(&mut self, peer_id: &PeerId) {
         println!("Pbft::add_address(): {:?}", peer_id);
         self.queued_events.push_back(NetworkBehaviourAction::DialPeer {
             peer_id: peer_id.clone(),
         });
+    }
+
+    pub fn add_client_request(&mut self, client_request: ClientRequest) {
+        println!("Pbft::add_client_request(): {:?}", client_request);
+        self.client_requests.push_back(client_request);
     }
 }
 
