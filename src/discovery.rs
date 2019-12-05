@@ -29,10 +29,10 @@ impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventPro
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
             MdnsEvent::Discovered(list) => {
-                for (peer_id, addr) in list {
+                for (peer_id, address) in list {
                     if self.nodes.write().unwrap().insert(peer_id.clone()) {
-                        println!("The node has been discovered: {:?}", addr);
-                        self.pbft.add_peer(&peer_id);
+                        println!("The node has been discovered: {:?}", address);
+                        self.pbft.add_peer(&peer_id, &address);
                     }
                 }
             },

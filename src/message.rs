@@ -31,7 +31,7 @@ pub enum MessageType {
     Prepare,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClientRequest {
     operation: String,
     timestamp: u64,
