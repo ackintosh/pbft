@@ -3,7 +3,7 @@ use libp2p::{NetworkBehaviour, PeerId};
 use tokio::prelude::{AsyncRead, AsyncWrite};
 use std::collections::HashSet;
 use std::sync::{RwLock, Arc};
-use crate::protocol::{Pbft, PbftEvent};
+use crate::behavior::{Pbft, PbftEvent};
 
 #[derive(NetworkBehaviour)]
 pub struct Discovery<TSubstream: AsyncRead + AsyncWrite> {

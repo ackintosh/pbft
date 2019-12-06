@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Message, MessageType, Prepare};
 use crate::state::State;
 use std::collections::VecDeque;
-use crate::protocol::Pbft;
+use crate::behavior::Pbft;
 use tokio::prelude::{AsyncRead, AsyncWrite};
 
 pub struct MessageHandler {

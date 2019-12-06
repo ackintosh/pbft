@@ -9,15 +9,16 @@ use crate::discovery::Discovery;
 use futures::Async;
 use futures::stream::Stream;
 use std::collections::{HashSet, VecDeque};
-use crate::protocol::Pbft;
+use crate::behavior::Pbft;
 use crate::message::{MessageType, ClientRequest};
 use std::thread::JoinHandle;
 use tokio::prelude::{AsyncRead, AsyncWrite};
 
 mod config;
 mod discovery;
+mod handler;
 mod message_handler;
-mod protocol;
+mod behavior;
 mod state;
 mod node_type;
 mod message;
