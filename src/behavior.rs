@@ -4,7 +4,6 @@ use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::{PollParameters, ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction};
 use libp2p::multiaddr::Multiaddr;
-use void::Void;
 use std::error::Error;
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
 use futures::Poll;
