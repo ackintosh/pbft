@@ -1,9 +1,10 @@
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
-use libp2p::swarm::{PollParameters, ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction};
+use libp2p::swarm::ProtocolsHandler;
 use crate::message::{ClientRequest, MessageType, PrePrepare};
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
-use crate::behavior::{PbftEvent, PbftFailure, Pbft, PbftProtocolConfig};
+use crate::behavior::{PbftEvent, PbftFailure};
 use futures::Poll;
+use crate::protocol_config::PbftProtocolConfig;
 
 #[derive(Debug)]
 pub enum PbftHandlerIn {

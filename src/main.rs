@@ -19,6 +19,7 @@ mod discovery;
 mod handler;
 mod message_handler;
 mod behavior;
+mod protocol_config;
 mod state;
 mod node_type;
 mod message;
