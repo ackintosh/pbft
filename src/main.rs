@@ -45,7 +45,7 @@ fn main() {
     Swarm::listen_on(&mut swarm, "/ip4/127.0.0.1/tcp/0".parse().unwrap()).unwrap();
 
     let client_requests = Arc::new(RwLock::new(VecDeque::new()));
-    let _ = run_client_message_handler(
+    let _ = run_client_request_handler(
         client_requests.clone(),
     );
 
@@ -72,7 +72,7 @@ fn main() {
         }
     }));
 
-    fn run_client_message_handler(
+    fn run_client_request_handler(
         client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
     ) -> JoinHandle<()> {
         let args: Vec<String> = std::env::args().collect();

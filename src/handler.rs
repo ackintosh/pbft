@@ -1,8 +1,8 @@
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::{PollParameters, ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction};
-use crate::message::ClientRequest;
+use crate::message::{ClientRequest, MessageType, PrePrepare};
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
-use crate::behavior::{PbftEvent, PbftFailure, Pbft};
+use crate::behavior::{PbftEvent, PbftFailure, Pbft, PbftProtocolConfig};
 use futures::Poll;
 
 #[derive(Debug)]
@@ -11,12 +11,20 @@ pub enum PbftHandlerIn {
 }
 
 pub struct PbftHandler<TSubstream> {
+    config: PbftProtocolConfig,
+    substreams: Vec<SubstreamState>,
     _marker: std::marker::PhantomData<TSubstream>,
+}
+
+enum SubstreamState {
+    OutPendingOpen(MessageType),
 }
 
 impl<TSubstream> PbftHandler<TSubstream> {
     pub fn new() -> Self {
         Self {
+            config: PbftProtocolConfig {},
+            substreams: Vec::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -30,29 +38,41 @@ where
     type OutEvent = PbftEvent;
     type Error = PbftFailure;
     type Substream = TSubstream;
-    type InboundProtocol = Pbft<TSubstream>;
-    type OutboundProtocol = Pbft<TSubstream>;
-    type OutboundOpenInfo = ();
+    type InboundProtocol = PbftProtocolConfig;
+    type OutboundProtocol = PbftProtocolConfig;
+    type OutboundOpenInfo = MessageType;
 
-    fn listen_protocol(&self) -> SubstreamProtocol<Pbft<TSubstream>> {
+    fn listen_protocol(&self) -> SubstreamProtocol<PbftProtocolConfig> {
         println!("PbftHandler::listen_protocol()");
-        SubstreamProtocol::new(Pbft::new())
+        SubstreamProtocol::new(self.config.clone())
     }
 
-    fn inject_fully_negotiated_inbound(&mut self, _: ()) {
-        println!("PbftHandler::inject_fully_negotiated_inbound()");
+    fn inject_fully_negotiated_inbound(&mut self, protocol: ()) {
+        println!("PbftHandler::inject_fully_negotiated_inbound(), protocol: {:?}", protocol);
     }
 
-    fn inject_fully_negotiated_outbound(&mut self, _out: (), _info: ()) {
-        println!("PbftHandler::inject_fully_negotiated_outbound()");
+    fn inject_fully_negotiated_outbound(&mut self, protocol: (), _info: MessageType) {
+        println!("PbftHandler::inject_fully_negotiated_outbound(), protocol: {:?}", protocol);
     }
 
     fn inject_event(&mut self, handler_in: PbftHandlerIn) {
         println!("PbftHandler::inject_event() : {:?}", handler_in);
+        match handler_in {
+            PbftHandlerIn::ClientRequest(request) => {
+                let message = PrePrepare::from(
+                    1, // TODO
+                    1, // TODO
+                    request.operation()
+                );
+                self.substreams.push(
+                    SubstreamState::OutPendingOpen(MessageType::HandlerPrePrepare(message))
+                );
+            }
+        }
     }
 
-    fn inject_dial_upgrade_error(&mut self, _info: (), _error: ProtocolsHandlerUpgrErr<std::io::Error>) {
-        println!("PbftHandler::inject_dial_upgrade_error()");
+    fn inject_dial_upgrade_error(&mut self, info: MessageType, error: ProtocolsHandlerUpgrErr<std::io::Error>) {
+        println!("PbftHandler::inject_dial_upgrade_error(), info: {:?}, error: {:?}", info, error);
     }
 
     fn connection_keep_alive(&self) -> KeepAlive {
@@ -60,8 +80,21 @@ where
         KeepAlive::Yes
     }
 
-    fn poll(&mut self) -> Poll<ProtocolsHandlerEvent<Pbft<TSubstream>, (), PbftEvent>, Self::Error> {
+    fn poll(&mut self) -> Poll<ProtocolsHandlerEvent<PbftProtocolConfig, MessageType, PbftEvent>, Self::Error> {
         println!("PbftHandler::poll()");
+        if let Some(substream) = self.substreams.pop() {
+            match substream {
+                SubstreamState::OutPendingOpen(message) => {
+                    println!("PbftHandler::poll() -> SubstreamState::OutPendingOpen : {:?}", message);
+                    let event = ProtocolsHandlerEvent::OutboundSubstreamRequest {
+                        protocol: SubstreamProtocol::new(self.config.clone()),
+                        info: message,
+                    };
+                    return Ok(Async::Ready(event));
+                }
+            }
+        }
+
         Ok(Async::NotReady)
 //        Ok(Async::Ready(
 //            ProtocolsHandlerEvent::OutboundSubstreamRequest {

@@ -29,6 +29,7 @@ pub enum MessageType {
     ClientRequest,
     PrePrepare,
     Prepare,
+    HandlerPrePrepare(PrePrepare),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

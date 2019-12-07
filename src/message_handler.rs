@@ -78,6 +78,7 @@ impl MessageHandler {
             MessageType::Prepare => {
                 // TODO
             }
+            _ => panic!("something wrong")
         }
 
         Ok(())

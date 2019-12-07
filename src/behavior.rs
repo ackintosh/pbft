@@ -73,7 +73,10 @@ impl<TSubstream> Pbft<TSubstream> {
     }
 }
 
-impl<TSubstream> UpgradeInfo for Pbft<TSubstream> {
+#[derive(Clone, Debug)]
+pub struct PbftProtocolConfig;
+
+impl UpgradeInfo for PbftProtocolConfig {
     type Info = Name;
     type InfoIter = std::iter::Once<Self::Info>;
 
@@ -83,7 +86,7 @@ impl<TSubstream> UpgradeInfo for Pbft<TSubstream> {
     }
 }
 
-impl<TSubstream> InboundUpgrade<TSubstream> for Pbft<TSubstream>
+impl<TSubstream> InboundUpgrade<TSubstream> for PbftProtocolConfig
 where
     TSubstream: AsyncRead + AsyncWrite
 {
@@ -101,7 +104,7 @@ where
     }
 }
 
-impl<TSubstream> OutboundUpgrade<TSubstream> for Pbft<TSubstream>
+impl<TSubstream> OutboundUpgrade<TSubstream> for PbftProtocolConfig
 where
     TSubstream: AsyncRead + AsyncWrite
 {
