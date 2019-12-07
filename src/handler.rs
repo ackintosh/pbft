@@ -5,6 +5,8 @@ use tokio::prelude::{AsyncRead, AsyncWrite, Async};
 use crate::behavior::{PbftEvent, PbftFailure};
 use futures::Poll;
 use crate::protocol_config::PbftProtocolConfig;
+use libp2p::{OutboundUpgrade, InboundUpgrade};
+use std::error::Error;
 
 #[derive(Debug)]
 pub enum PbftHandlerIn {
@@ -48,12 +50,19 @@ where
         SubstreamProtocol::new(self.config.clone())
     }
 
-    fn inject_fully_negotiated_inbound(&mut self, protocol: ()) {
-        println!("PbftHandler::inject_fully_negotiated_inbound(), protocol: {:?}", protocol);
+    fn inject_fully_negotiated_inbound(
+        &mut self,
+        protocol: <Self::InboundProtocol as InboundUpgrade<TSubstream>>::Output,
+    ) {
+        println!("PbftHandler::inject_fully_negotiated_inbound()");
     }
 
-    fn inject_fully_negotiated_outbound(&mut self, protocol: (), _info: MessageType) {
-        println!("PbftHandler::inject_fully_negotiated_outbound(), protocol: {:?}", protocol);
+    fn inject_fully_negotiated_outbound(
+        &mut self,
+        protocol: <Self::OutboundProtocol as OutboundUpgrade<TSubstream>>::Output,
+        _info: MessageType
+    ) {
+        println!("PbftHandler::inject_fully_negotiated_outbound()");
     }
 
     fn inject_event(&mut self, handler_in: PbftHandlerIn) {
