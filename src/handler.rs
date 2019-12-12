@@ -1,10 +1,13 @@
+use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::ProtocolsHandler;
 use crate::message::{ClientRequest, MessageType, PrePrepare};
-use tokio::prelude::{AsyncRead, AsyncWrite, Async};
-use crate::behavior::{PbftEvent, PbftFailure};
+use tokio::prelude::{AsyncRead, AsyncWrite, Async, AsyncSink};
+use crate::behavior::PbftFailure;
 use futures::Poll;
-use crate::protocol_config::PbftProtocolConfig;
+use futures::sink::Sink;
+use futures::stream::Stream;
+use crate::protocol_config::{PbftProtocolConfig, PbftOutStreamSink, PbftInStreamSink};
 use libp2p::{OutboundUpgrade, InboundUpgrade};
 use std::error::Error;
 
@@ -13,17 +16,45 @@ pub enum PbftHandlerIn {
     ClientRequest(ClientRequest),
 }
 
-pub struct PbftHandler<TSubstream> {
+pub struct PbftHandler<TSubstream>
+where
+    TSubstream: AsyncRead + AsyncWrite
+{
     config: PbftProtocolConfig,
-    substreams: Vec<SubstreamState>,
+    substreams: Vec<SubstreamState<Negotiated<TSubstream>>>,
     _marker: std::marker::PhantomData<TSubstream>,
 }
 
-enum SubstreamState {
+enum SubstreamState<TSubstream>
+where
+    TSubstream: AsyncRead + AsyncWrite
+{
+    /// We haven't started opening the outgoing substream yet.
+    /// Contains the request we want to send, and the user data if we expect an answer.
     OutPendingOpen(MessageType),
+    /// Waiting to send a message to the remote.
+    OutPendingSend(PbftOutStreamSink<TSubstream>, MessageType),
+    /// Waiting to flush the substream so that the data arrives to the remote.
+    OutPendingFlush(PbftOutStreamSink<TSubstream>),
+    // TODO: add timeout
+    OutWaitingAnswer(PbftOutStreamSink<TSubstream>),
+    /// The substream is being closed.
+    OutClosing(PbftOutStreamSink<TSubstream>),
+    /// Waiting for a request from the remote.
+    InWaitingMessage(PbftInStreamSink<TSubstream>),
+    /// Waiting for the user to send a `PbftHandlerIn` event containing the response.
+    InWaitingUser(PbftInStreamSink<TSubstream>),
 }
 
-impl<TSubstream> PbftHandler<TSubstream> {
+#[derive(Debug)]
+pub enum PbftHandlerEvent {
+    PrePrepareRequest,
+}
+
+impl<TSubstream> PbftHandler<TSubstream>
+where
+    TSubstream: AsyncRead + AsyncWrite
+{
     pub fn new() -> Self {
         Self {
             config: PbftProtocolConfig {},
@@ -38,7 +69,7 @@ where
     TSubstream: AsyncRead + AsyncWrite,
 {
     type InEvent = PbftHandlerIn;
-    type OutEvent = PbftEvent;
+    type OutEvent = PbftHandlerEvent;
     type Error = PbftFailure;
     type Substream = TSubstream;
     type InboundProtocol = PbftProtocolConfig;
@@ -55,14 +86,16 @@ where
         protocol: <Self::InboundProtocol as InboundUpgrade<TSubstream>>::Output,
     ) {
         println!("PbftHandler::inject_fully_negotiated_inbound()");
+        self.substreams.push(SubstreamState::InWaitingMessage(protocol));
     }
 
     fn inject_fully_negotiated_outbound(
         &mut self,
         protocol: <Self::OutboundProtocol as OutboundUpgrade<TSubstream>>::Output,
-        _info: MessageType
+        message: MessageType
     ) {
         println!("PbftHandler::inject_fully_negotiated_outbound()");
+        self.substreams.push(SubstreamState::OutPendingSend(protocol, message));
     }
 
     fn inject_event(&mut self, handler_in: PbftHandlerIn) {
@@ -90,28 +123,173 @@ where
         KeepAlive::Yes
     }
 
-    fn poll(&mut self) -> Poll<ProtocolsHandlerEvent<PbftProtocolConfig, MessageType, PbftEvent>, Self::Error> {
+    fn poll(&mut self) -> Poll<ProtocolsHandlerEvent<PbftProtocolConfig, MessageType, Self::OutEvent>, Self::Error> {
         println!("PbftHandler::poll()");
-        if let Some(substream) = self.substreams.pop() {
-            match substream {
-                SubstreamState::OutPendingOpen(message) => {
-                    println!("PbftHandler::poll() -> SubstreamState::OutPendingOpen : {:?}", message);
-                    let event = ProtocolsHandlerEvent::OutboundSubstreamRequest {
-                        protocol: SubstreamProtocol::new(self.config.clone()),
-                        info: message,
-                    };
-                    return Ok(Async::Ready(event));
+
+        if let Some(substream_state) = self.substreams.pop() {
+            match handle_substream(substream_state, self.config.clone()) {
+                (Some(new_substream_state), None) => {
+                    self.substreams.push(new_substream_state);
+                },
+                (None, Some(protocol_handler_event)) => {
+                    println!("PbftHandler::poll -> protocol_handler_event : {:?}", protocol_handler_event);
+                    return Ok(Async::Ready(protocol_handler_event));
+                },
+                (Some(new_substream_state), Some(protocol_handler_event)) => {
+                    println!("[PbftHandler::poll] [Some, Some]");
+                    self.substreams.push(new_substream_state);
+                    return Ok(Async::Ready(protocol_handler_event));
                 }
+                (None, None) => println!("PbftHandler::poll -> (None, None)") // TODO
             }
         }
 
         Ok(Async::NotReady)
-//        Ok(Async::Ready(
-//            ProtocolsHandlerEvent::OutboundSubstreamRequest {
-//                protocol: SubstreamProtocol::new(Pbft::new()),
-//                info: (),
-//            }
-//        ))
     }
+
 }
 
+fn handle_substream<TSubstream>(
+    substream_state: SubstreamState<TSubstream>,
+    config: PbftProtocolConfig,
+) -> (
+    Option<SubstreamState<TSubstream>>,
+    Option<
+        ProtocolsHandlerEvent<
+            PbftProtocolConfig,
+            MessageType,
+            PbftHandlerEvent,
+        >,
+    >,
+)
+where
+    TSubstream: AsyncRead + AsyncWrite
+{
+    match substream_state {
+        SubstreamState::OutPendingOpen(message) => {
+            println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingOpen] message: {:?}", message);
+            let event = ProtocolsHandlerEvent::OutboundSubstreamRequest {
+                protocol: SubstreamProtocol::new(config),
+                info: message,
+            };
+            return (None, Some(event));
+        }
+        SubstreamState::OutPendingSend(mut substream, message) => {
+            println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingSend] message: {:?}", message);
+            match substream.start_send(message) {
+                Ok(AsyncSink::Ready) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingSend] [start_send::Ready]");
+                    (
+                        Some(SubstreamState::OutPendingFlush(substream)),
+                        None,
+                    )
+                },
+                Ok(AsyncSink::NotReady(msg)) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingSend] [start_send::NotReady] msg: {:?}", msg);
+                    (
+                        Some(SubstreamState::OutPendingSend(substream, msg)),
+                        None,
+                    )
+                },
+                Err(e) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingSend] [start_send::Err] Err: {:?}", e);
+                    (None, None) // TODO
+                }
+            }
+        }
+        SubstreamState::OutPendingFlush(mut substream) => {
+            match substream.poll_complete() {
+                Ok(Async::Ready(())) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingFlush] [Ready]");
+                    (
+                        Some(SubstreamState::OutWaitingAnswer(substream)),
+                        None,
+                    )
+                }
+                Ok(Async::NotReady) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingFlush] [NotReady]");
+                    (
+                        Some(SubstreamState::OutPendingFlush(substream)),
+                        None,
+                    )
+                }
+                Err(e) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingFlush] [Err] Err: {:?}", e);
+                    (None, None) // TODO
+                }
+            }
+        }
+        SubstreamState::OutWaitingAnswer(mut substream) => {
+            match substream.poll() {
+                Ok(Async::Ready(Some(msg))) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Ready::Some] msg: {:?}", msg);
+                    (
+                        Some(SubstreamState::OutClosing(substream)),
+                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareRequest)), // TODO
+                    )
+                }
+                Ok(Async::NotReady) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [NotReady]");
+                    (
+                        Some(SubstreamState::OutWaitingAnswer(substream)),
+                        None,
+                    )
+                }
+                Err(e) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Err] Err: {:?}", e);
+                    (None, None) // TODO
+                }
+                Ok(Async::Ready(None)) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Ready::None]");
+                    (None, None) // TODO
+                }
+            }
+        }
+        SubstreamState::OutClosing(mut substream) => {
+            match substream.close() {
+                Ok(Async::Ready(())) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutClosing] [Ready]");
+                    (None, None)
+                }
+                Ok(Async::NotReady) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutClosing] [NotReady]");
+                    (
+                        Some(SubstreamState::OutClosing(substream)),
+                        None,
+                    )
+                }
+                Err(e) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutClosing] [Err] Err: {:?}", e);
+                    (None, None) // TODO
+                }
+            }
+        }
+        SubstreamState::InWaitingMessage(mut substream) => {
+            match substream.poll() {
+                Ok(Async::Ready(Some(msg))) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Ready(Some)] msg: {:?}", msg);
+                    // TODO
+                    (
+                        Some(SubstreamState::InWaitingUser(substream)),
+                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareRequest)),
+                    )
+                },
+                Ok(Async::NotReady) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [NotReady]");
+                    (
+                        Some(SubstreamState::InWaitingMessage(substream)),
+                        None,
+                    )
+                },
+                Ok(Async::Ready(None)) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Ready(None)] Inbound substream EOF");
+                    (None, None)
+                },
+                Err(e) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Err] Err: {:?}", e);
+                    (None, None) // TODO
+                }
+            }
+        }
+    }
+}

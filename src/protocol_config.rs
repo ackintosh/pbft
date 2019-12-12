@@ -52,7 +52,7 @@ where
                 .from_err()
                 .with::<_, fn(_) -> _, _>(|response| {
                     println!("PbftProtocolConfig::upgrade_inbound -> with, response : {:?}", response);
-                    Ok(Vec::new()) // TODO
+                    Ok([1, 2, 3].to_vec()) // TODO
                 })
                 .and_then::<fn(_) -> _, _>(|bytes| {
                     println!("PbftProtocolConfig::upgrade_inbound -> and_then");
@@ -83,21 +83,21 @@ where
                 .from_err()
                 .with::<_, fn(_) -> _, _>(|request| {
                     println!("PbftProtocolConfig::upgrade_outbound -> with, request : {:?}", request);
-                    Ok(Vec::new()) // TODO
+                    Ok([1, 2, 3].to_vec()) // TODO
                 })
                 .and_then::<fn(_) -> _, _>(|bytes| {
                     println!("PbftProtocolConfig::upgrade_outbound -> and_then");
-                    Ok(()) // TODO
+                    Ok([4, 5, 6].to_vec()) // TODO
                 })
         )
     }
 }
 
-type PbftInStreamSink<S> = PbftStreamSink<S, (), MessageType>;
+pub type PbftInStreamSink<S> = PbftStreamSink<S, Vec<u8>, MessageType>;
 
-type PbftOutStreamSink<S> = PbftStreamSink<S, MessageType, ()>;
+pub type PbftOutStreamSink<S> = PbftStreamSink<S, MessageType, Vec<u8>>;
 
-type PbftStreamSink<S, A, B> = futures::stream::AndThen<
+pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
     futures::sink::With<
         futures::stream::FromErr<Framed<S, UviBytes<Vec<u8>>>, std::io::Error>,
         A,

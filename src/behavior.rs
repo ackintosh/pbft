@@ -8,7 +8,7 @@ use libp2p::PeerId;
 use futures::future::FutureResult;
 use std::collections::{VecDeque, HashSet};
 use crate::message::ClientRequest;
-use crate::handler::{PbftHandlerIn, PbftHandler};
+use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 
 pub struct Pbft<TSubstream> {
     connected_peers: HashSet<Peer>,
@@ -88,14 +88,15 @@ where
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let addresses = self.connected_peers.iter().filter(|peer| {
-            peer.peer_id != peer_id.clone()
-        }).map(|peer| {
-            peer.address.clone()
-        }).collect();
-
-        println!("Pbft::addresses_of_peer() : {:?}", addresses);
-        addresses
+        Vec::new() // TODO?
+//        let addresses = self.connected_peers.iter().filter(|peer| {
+//            peer.peer_id != peer_id.clone()
+//        }).map(|peer| {
+//            peer.address.clone()
+//        }).collect();
+//
+//        println!("Pbft::addresses_of_peer() : {:?}", addresses);
+//        addresses
     }
 
     fn inject_connected(&mut self, peer_id: PeerId, connected_point: ConnectedPoint) {
@@ -120,8 +121,8 @@ where
         self.connected_peers.remove(&peer);
     }
 
-    fn inject_node_event(&mut self, _peer: PeerId, _event: PbftEvent) {
-        println!("inject_node_event");
+    fn inject_node_event(&mut self, _peer: PeerId, handler_event: PbftHandlerEvent) {
+        println!("[Pbft::inject_node_event] handler_event: {:?}", handler_event);
     }
 
     fn poll(&mut self, _: &mut impl PollParameters) -> Async<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>> {
