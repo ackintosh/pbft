@@ -121,8 +121,20 @@ where
         self.connected_peers.remove(&peer);
     }
 
-    fn inject_node_event(&mut self, _peer: PeerId, handler_event: PbftHandlerEvent) {
+    fn inject_node_event(&mut self, peer_id: PeerId, handler_event: PbftHandlerEvent) {
         println!("[Pbft::inject_node_event] handler_event: {:?}", handler_event);
+        match handler_event {
+            PbftHandlerEvent::PrePrepareRequest { message } => {
+                // TODO
+                self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                    peer_id,
+                    event: PbftHandlerIn::PrePrepareResponse("OK".into()),
+                });
+            }
+            PbftHandlerEvent::PrePrepareResponse => {
+                // TODO
+            }
+        }
     }
 
     fn poll(&mut self, _: &mut impl PollParameters) -> Async<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>> {
