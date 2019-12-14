@@ -138,7 +138,14 @@ where
             }
             PbftHandlerEvent::PrePrepareResponse { response } => {
                 // TODO: handle the response
-                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response: {:?}", response);
+                let response_message = String::from_utf8(response).expect("Failed to parse response");
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
+                if response_message == "OK" {
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] the communications has done successfully")
+                } else {
+                    // TODO: retry?
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
+                }
             }
         }
     }
