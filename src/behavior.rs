@@ -126,13 +126,15 @@ where
         match handler_event {
             PbftHandlerEvent::PrePrepareRequest { message } => {
                 // TODO
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] message: {:?}", message);
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::PrePrepareResponse("OK".into()),
                 });
             }
-            PbftHandlerEvent::PrePrepareResponse => {
+            PbftHandlerEvent::PrePrepareResponse { message } => {
                 // TODO
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] message: {:?}", message);
             }
         }
     }

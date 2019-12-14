@@ -58,7 +58,9 @@ pub enum PbftHandlerEvent {
     PrePrepareRequest {
         message: MessageType,
     },
-    PrePrepareResponse,
+    PrePrepareResponse {
+        message: Vec<u8>,
+    },
 }
 
 impl<TSubstream> PbftHandler<TSubstream>
@@ -151,23 +153,38 @@ where
     }
 
     fn poll(&mut self) -> Poll<ProtocolsHandlerEvent<PbftProtocolConfig, MessageType, Self::OutEvent>, Self::Error> {
-        println!("PbftHandler::poll()");
+        println!("[PbftHandler::poll]");
 
-        if let Some(substream_state) = self.substreams.pop() {
-            match handle_substream(substream_state, self.config.clone()) {
-                (Some(new_substream_state), None) => {
-                    self.substreams.push(new_substream_state);
-                },
-                (None, Some(protocol_handler_event)) => {
-                    println!("PbftHandler::poll -> protocol_handler_event : {:?}", protocol_handler_event);
-                    return Ok(Async::Ready(protocol_handler_event));
-                },
-                (Some(new_substream_state), Some(protocol_handler_event)) => {
-                    println!("[PbftHandler::poll] [Some, Some]");
-                    self.substreams.push(new_substream_state);
-                    return Ok(Async::Ready(protocol_handler_event));
+        if let Some(mut substream_state) = self.substreams.pop() {
+            println!("[PbftHandler::poll] [substream_state]");
+
+            loop {
+                match handle_substream(substream_state, self.config.clone()) {
+                    (Some(new_substream_state), None, true) => {
+                        println!("[PbftHandler::poll] (Some, None false)");
+                        substream_state = new_substream_state;
+                        continue;
+                    },
+                    (Some(new_substream_state), None, false) => {
+                        println!("[PbftHandler::poll] (Some, None, false)");
+                        self.substreams.push(new_substream_state);
+                        break;
+                    },
+                    (None, Some(protocol_handler_event), _)  => {
+                        println!("[PbftHandler::poll] (None, Some, _) protocol_handler_event : {:?}", protocol_handler_event);
+                        return Ok(Async::Ready(protocol_handler_event));
+                    },
+                    (Some(new_substream_state), Some(protocol_handler_event), _) => {
+                        println!("[PbftHandler::poll] (Some, Some, _)");
+                        self.substreams.push(new_substream_state);
+                        return Ok(Async::Ready(protocol_handler_event));
+                    }
+                    (None, None, _) => {
+                        // TODO
+                        println!("[PbftHandler::poll] (None, None, _)");
+                        break;
+                    }
                 }
-                (None, None) => println!("PbftHandler::poll -> (None, None)") // TODO
             }
         }
 
@@ -188,6 +205,7 @@ fn handle_substream<TSubstream>(
             PbftHandlerEvent,
         >,
     >,
+    bool, // whether the substream should be polled again
 )
 where
     TSubstream: AsyncRead + AsyncWrite
@@ -199,7 +217,7 @@ where
                 protocol: SubstreamProtocol::new(config),
                 info: message,
             };
-            return (None, Some(event));
+            return (None, Some(event), false);
         }
         SubstreamState::OutPendingSend(mut substream, message) => {
             println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingSend] message: {:?}", message);
@@ -209,6 +227,7 @@ where
                     (
                         Some(SubstreamState::OutPendingFlush(substream)),
                         None,
+                        true,
                     )
                 },
                 Ok(AsyncSink::NotReady(msg)) => {
@@ -216,11 +235,12 @@ where
                     (
                         Some(SubstreamState::OutPendingSend(substream, msg)),
                         None,
+                        false,
                     )
                 },
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingSend] [start_send::Err] Err: {:?}", e);
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
             }
         }
@@ -231,6 +251,7 @@ where
                     (
                         Some(SubstreamState::OutWaitingAnswer(substream)),
                         None,
+                        true,
                     )
                 }
                 Ok(Async::NotReady) => {
@@ -238,21 +259,24 @@ where
                     (
                         Some(SubstreamState::OutPendingFlush(substream)),
                         None,
+                        false,
                     )
                 }
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutPendingFlush] [Err] Err: {:?}", e);
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
             }
         }
         SubstreamState::OutWaitingAnswer(mut substream) => {
+            println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer]");
             match substream.poll() {
                 Ok(Async::Ready(Some(msg))) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Ready::Some] msg: {:?}", msg);
                     (
                         Some(SubstreamState::OutClosing(substream)),
-                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareResponse)), // TODO
+                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareResponse { message: msg })), // TODO
+                        true,
                     )
                 }
                 Ok(Async::NotReady) => {
@@ -260,15 +284,16 @@ where
                     (
                         Some(SubstreamState::OutWaitingAnswer(substream)),
                         None,
+                        false,
                     )
                 }
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Err] Err: {:?}", e);
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
                 Ok(Async::Ready(None)) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Ready::None]");
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
             }
         }
@@ -276,18 +301,19 @@ where
             match substream.close() {
                 Ok(Async::Ready(())) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutClosing] [Ready]");
-                    (None, None)
+                    (None, None, false)
                 }
                 Ok(Async::NotReady) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutClosing] [NotReady]");
                     (
                         Some(SubstreamState::OutClosing(substream)),
                         None,
+                        false,
                     )
                 }
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutClosing] [Err] Err: {:?}", e);
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
             }
         }
@@ -298,6 +324,7 @@ where
                     (
                         Some(SubstreamState::InWaitingUser(substream)),
                         Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareRequest { message: msg })), // TODO
+                        false,
                     )
                 },
                 Ok(Async::NotReady) => {
@@ -305,15 +332,16 @@ where
                     (
                         Some(SubstreamState::InWaitingMessage(substream)),
                         None,
+                        true,
                     )
                 },
                 Ok(Async::Ready(None)) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Ready(None)] Inbound substream EOF");
-                    (None, None)
+                    (None, None, false)
                 },
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Err] Err: {:?}", e);
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
             }
         }
@@ -322,6 +350,7 @@ where
             (
                 Some(SubstreamState::InWaitingUser(substream)),
                 None,
+                false,
             )
         }
         SubstreamState::InPendingSend(mut substream, response) => {
@@ -331,6 +360,7 @@ where
                     (
                         Some(SubstreamState::InPendingFlush(substream)),
                         None,
+                        true,
                     )
                 },
                 Ok(AsyncSink::NotReady(response)) => {
@@ -338,11 +368,12 @@ where
                     (
                         Some(SubstreamState::InPendingSend(substream, response)),
                         None,
+                        false,
                     )
                 },
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InPendingSend] [Err]");
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
             }
         }
@@ -353,6 +384,7 @@ where
                     (
                         Some(SubstreamState::InClosing(substream)),
                         None,
+                        true,
                     )
                 },
                 Ok(Async::NotReady) => {
@@ -360,11 +392,12 @@ where
                     (
                         Some(SubstreamState::InPendingFlush(substream)),
                         None,
+                        false,
                     )
                 },
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InPendingFlush] [Err]");
-                    (None, None)
+                    (None, None, false)
                 }
             }
         }
@@ -372,15 +405,15 @@ where
             match substream.close() {
                 Ok(Async::Ready(())) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InClosing] [Async::Ready]");
-                    (None, None)
+                    (None, None, false)
                 },
                 Ok(Async::NotReady) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InClosing] [Async::NotReady]");
-                    (Some(SubstreamState::InClosing(substream)), None)
+                    (Some(SubstreamState::InClosing(substream)), None, false)
                 },
                 Err(e) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InClosing] [Err]");
-                    (None, None) // TODO
+                    (None, None, false) // TODO
                 }
             }
         }
