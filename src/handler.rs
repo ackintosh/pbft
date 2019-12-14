@@ -56,7 +56,7 @@ where
 
 #[derive(Debug)]
 pub enum PbftHandlerEvent {
-    PrePrepareRequest {
+    ProcessPrePrepareRequest {
         request: PrePrepare,
     },
     PrePrepareResponse {
@@ -420,7 +420,7 @@ fn message_to_handler_event(message: MessageType) -> PbftHandlerEvent {
     // TODO
     match message {
         MessageType::HandlerPrePrepare(pre_prepare) => {
-            PbftHandlerEvent::PrePrepareRequest { request: pre_prepare }
+            PbftHandlerEvent::ProcessPrePrepareRequest { request: pre_prepare }
         }
         _ => unreachable!()
     }

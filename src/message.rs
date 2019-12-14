@@ -55,7 +55,7 @@ impl From<Message> for ClientRequest {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PrePrepare {
     // view indicates the view in which the message is being sent
     view: u64,
@@ -122,7 +122,7 @@ impl PrePrepareSequence {
     pub fn increment(&mut self) {
         let from = self.value.clone();
         self.value += 1;
-        println!("PrePrepareSequence has been incremented from {} to {}", from, self.value);
+        println!("[PrePrepareSequence::increment] value has been incremented from {} to {}", from, self.value);
     }
 
     pub fn value(&self) -> u64 {

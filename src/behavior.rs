@@ -65,17 +65,55 @@ impl<TSubstream> Pbft<TSubstream> {
 
         // In the pre-prepare phase, the primary assigns a sequence number, n, to the request
         self.pre_prepare_sequence.increment();
+        let pre_prepare = PrePrepare::from(
+            self.state.current_view(),
+            self.pre_prepare_sequence.value(),
+            client_request.operation(),
+        );
 
         for peer in self.connected_peers.iter() {
             self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                 peer_id: peer.peer_id.clone(),
-                event: PbftHandlerIn::PrePrepareRequest(PrePrepare::from(
-                    self.state.current_view(),
-                    self.pre_prepare_sequence.value(),
-                    client_request.operation(),
-                ))
+                event: PbftHandlerIn::PrePrepareRequest(pre_prepare.clone())
             });
         }
+
+        self.process_pre_prepare(pre_prepare).unwrap(); // TODO: error handling
+    }
+
+    fn process_pre_prepare(&mut self, pre_prepare: PrePrepare) -> Result<(), String> {
+        self.validate_pre_prepare(&pre_prepare)?;
+        self.state.insert_pre_prepare(pre_prepare);
+        Ok(())
+    }
+
+    fn validate_pre_prepare(&self, pre_prepare: &PrePrepare) -> Result<(), String> {
+        // TODO: the signatures in the request and the pre-prepare message are correct
+
+        // _d_ is the digest for _m_
+        pre_prepare.validate_digest()?;
+
+        {
+            // it is in view _v_
+            let current_view = self.state.current_view();
+            if pre_prepare.view() != current_view {
+                return Err(format!("view number isn't matched. message: {}, state: {}", pre_prepare.view(), current_view));
+            }
+
+            // it has not accepted a pre-prepare message for view _v_ and sequence number _n_ containing a different digest
+            match self.state.get_pre_prepare(pre_prepare) {
+                Some(stored_pre_prepare) => {
+                    if pre_prepare.digest() != stored_pre_prepare.digest() {
+                        return Err(format!("The pre-prepare key has already stored into logs and its digest dont match. message: {}, stored message: {}", pre_prepare, stored_pre_prepare));
+                    }
+                }
+                None => {}
+            }
+        }
+
+        // TODO: the sequence number in the pre-prepare message is between a low water mark, _h_, and a high water mark, _H_
+
+        Ok(())
     }
 }
 
@@ -140,10 +178,10 @@ where
     fn inject_node_event(&mut self, peer_id: PeerId, handler_event: PbftHandlerEvent) {
         println!("[Pbft::inject_node_event] handler_event: {:?}", handler_event);
         match handler_event {
-            PbftHandlerEvent::PrePrepareRequest { request } => {
-                // TODO: process the PrePrepare request
-
+            PbftHandlerEvent::ProcessPrePrepareRequest { request } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] request: {:?}", request);
+                self.process_pre_prepare(request).unwrap(); // TODO: error handling
+
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::PrePrepareResponse("OK".into()),

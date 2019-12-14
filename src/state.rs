@@ -32,7 +32,7 @@ impl State {
     }
 
     pub fn insert_pre_prepare(&mut self, pre_prepare: PrePrepare) {
-        println!("The PrePrepare message has been stored into logs: {}", pre_prepare);
+        println!("[State::insert_pre_prepare] The PrePrepare message has been stored into logs: {}", pre_prepare);
 
         self.pre_prepares.insert(
             PrePrepareKey(pre_prepare.view(), pre_prepare.n()),
