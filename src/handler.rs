@@ -14,7 +14,7 @@ use std::error::Error;
 /// Event to send to the handler.
 #[derive(Debug)]
 pub enum PbftHandlerIn {
-    ClientRequest(ClientRequest),
+    PrePrepareRequest(PrePrepare),
     PrePrepareResponse(Vec<u8>),
 }
 
@@ -114,14 +114,9 @@ where
     fn inject_event(&mut self, handler_in: PbftHandlerIn) {
         println!("PbftHandler::inject_event() : {:?}", handler_in);
         match handler_in {
-            PbftHandlerIn::ClientRequest(request) => {
-                let message = PrePrepare::from(
-                    1, // TODO
-                    1, // TODO
-                    request.operation()
-                );
+            PbftHandlerIn::PrePrepareRequest(request) => {
                 self.substreams.push(
-                    SubstreamState::OutPendingOpen(MessageType::HandlerPrePrepare(message))
+                    SubstreamState::OutPendingOpen(MessageType::HandlerPrePrepare(request))
                 );
             }
             PbftHandlerIn::PrePrepareResponse(response) => {

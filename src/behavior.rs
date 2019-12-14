@@ -7,13 +7,16 @@ use futures::Poll;
 use libp2p::PeerId;
 use futures::future::FutureResult;
 use std::collections::{VecDeque, HashSet};
-use crate::message::ClientRequest;
+use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
+use crate::state::State;
 
 pub struct Pbft<TSubstream> {
     connected_peers: HashSet<Peer>,
     client_requests: VecDeque<ClientRequest>,
     queued_events: VecDeque<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>>,
+    state: State,
+    pre_prepare_sequence: PrePrepareSequence,
     _marker: std::marker::PhantomData<TSubstream>,
 }
 
@@ -38,6 +41,8 @@ impl<TSubstream> Pbft<TSubstream> {
             connected_peers: HashSet::new(),
             client_requests: VecDeque::with_capacity(100), // FIXME
             queued_events: VecDeque::with_capacity(100), // FIXME
+            state: State::new(),
+            pre_prepare_sequence: PrePrepareSequence::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -57,10 +62,18 @@ impl<TSubstream> Pbft<TSubstream> {
 
     pub fn add_client_request(&mut self, client_request: ClientRequest) {
         println!("[Pbft::add_client_request] client_request: {:?}", client_request);
+
+        // In the pre-prepare phase, the primary assigns a sequence number, n, to the request
+        self.pre_prepare_sequence.increment();
+
         for peer in self.connected_peers.iter() {
             self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                 peer_id: peer.peer_id.clone(),
-                event: PbftHandlerIn::ClientRequest(client_request.clone()),
+                event: PbftHandlerIn::PrePrepareRequest(PrePrepare::from(
+                    self.state.current_view(),
+                    self.pre_prepare_sequence.value(),
+                    client_request.operation(),
+                ))
             });
         }
     }
