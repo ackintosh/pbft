@@ -27,13 +27,18 @@ impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventPro
         match event {
             MdnsEvent::Discovered(list) => {
                 for (peer_id, address) in list {
-                    println!("The node has been discovered: {:?}", address);
-                    self.pbft.add_peer(&peer_id, &address);
+                    if !self.pbft.has_peer(&peer_id) {
+                        println!("The node has been discovered: {:?}", address);
+                        self.pbft.add_peer(&peer_id, &address);
+                    }
                 }
             },
             MdnsEvent::Expired(list) => {
                 for (peer_id, addr) in list {
-                    println!("The node has been expired: {:?}", addr);
+                    if self.pbft.has_peer(&peer_id) {
+                        println!("The node has been expired: {:?}", addr);
+                        // TODO
+                    }
                 }
             }
         }

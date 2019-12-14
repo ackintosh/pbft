@@ -42,6 +42,12 @@ impl<TSubstream> Pbft<TSubstream> {
         }
     }
 
+    pub fn has_peer(&self, peer_id: &PeerId) -> bool {
+        self.connected_peers.iter().any(|peer| {
+            peer.peer_id == peer_id.clone()
+        })
+    }
+
     pub fn add_peer(&mut self, peer_id: &PeerId, address: &Multiaddr) {
         println!("Pbft::add_address(): {:?}, {:?}", peer_id, address);
         self.queued_events.push_back(NetworkBehaviourAction::DialPeer {
@@ -50,9 +56,8 @@ impl<TSubstream> Pbft<TSubstream> {
     }
 
     pub fn add_client_request(&mut self, client_request: ClientRequest) {
-        println!("Pbft::add_client_request(): {:?}", client_request);
+        println!("[Pbft::add_client_request] client_request: {:?}", client_request);
         for peer in self.connected_peers.iter() {
-            println!("Pbft::add_client_request(): queued PbftHandlerIn : peer -> {:?}", peer);
             self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                 peer_id: peer.peer_id.clone(),
                 event: PbftHandlerIn::ClientRequest(client_request.clone()),
@@ -100,14 +105,12 @@ where
     }
 
     fn inject_connected(&mut self, peer_id: PeerId, connected_point: ConnectedPoint) {
-        println!("Pbft::inject_connected()");
+        println!("[Pbft::inject_connected] peer_id: {:?}, connected_point: {:?}", peer_id, connected_point);
         let address = match connected_point {
             ConnectedPoint::Dialer { address } => address,
             ConnectedPoint::Listener { local_addr: _, send_back_addr } => send_back_addr
         };
-        let peer = Peer::new(peer_id, address);
-        println!("Connected to the peer: {:?}", peer);
-        self.connected_peers.insert(peer);
+        self.connected_peers.insert(Peer::new(peer_id, address));
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId, connected_point: ConnectedPoint) {
@@ -140,9 +143,9 @@ where
     }
 
     fn poll(&mut self, _: &mut impl PollParameters) -> Async<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>> {
-        println!("Pbft::poll()");
+        println!("[Pbft::poll]");
         if let Some(event) = self.queued_events.pop_front() {
-            println!("Pbft.queued_evnets.pop_front: {:?}", event);
+            println!("[Pbft::poll] event: {:?}", event);
             return Async::Ready(event);
         }
         Async::NotReady
