@@ -9,16 +9,13 @@ use crate::behavior::{Pbft, PbftEvent};
 pub struct Discovery<TSubstream: AsyncRead + AsyncWrite> {
     mdns: Mdns<TSubstream>,
     pub pbft: Pbft<TSubstream>,
-    #[behaviour(ignore)]
-    nodes: Arc<RwLock<HashSet<PeerId>>>,
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> Discovery<TSubstream> {
-    pub fn new(mdns: Mdns<TSubstream>, pbft: Pbft<TSubstream>, nodes: Arc<RwLock<HashSet<PeerId>>>) -> Self {
+    pub fn new(mdns: Mdns<TSubstream>, pbft: Pbft<TSubstream>) -> Self {
         Self {
             mdns,
             pbft,
-            nodes,
         }
     }
 }
@@ -30,17 +27,13 @@ impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventPro
         match event {
             MdnsEvent::Discovered(list) => {
                 for (peer_id, address) in list {
-                    if self.nodes.write().unwrap().insert(peer_id.clone()) {
-                        println!("The node has been discovered: {:?}", address);
-                        self.pbft.add_peer(&peer_id, &address);
-                    }
+                    println!("The node has been discovered: {:?}", address);
+                    self.pbft.add_peer(&peer_id, &address);
                 }
             },
             MdnsEvent::Expired(list) => {
                 for (peer_id, addr) in list {
-                    if self.nodes.write().unwrap().remove(&peer_id) {
-                        println!("The node has been expired: {:?}", addr);
-                    }
+                    println!("The node has been expired: {:?}", addr);
                 }
             }
         }

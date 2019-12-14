@@ -41,8 +41,6 @@ fn main() {
         );
     }
 
-    let nodes = Arc::new(RwLock::new(HashSet::new()));
-
     let local_key = Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
 
@@ -52,7 +50,6 @@ fn main() {
         Discovery::new(
             libp2p::mdns::Mdns::new().expect("Failed to create mDNS service"),
             Pbft::new(),
-            nodes.clone()
         ),
         local_peer_id
     );
