@@ -6,12 +6,12 @@ use std::sync::{RwLock, Arc};
 use crate::behavior::{Pbft, PbftEvent};
 
 #[derive(NetworkBehaviour)]
-pub struct Discovery<TSubstream: AsyncRead + AsyncWrite> {
+pub struct NetworkBehaviourComposer<TSubstream: AsyncRead + AsyncWrite> {
     mdns: Mdns<TSubstream>,
     pub pbft: Pbft<TSubstream>,
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> Discovery<TSubstream> {
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourComposer<TSubstream> {
     pub fn new(mdns: Mdns<TSubstream>, pbft: Pbft<TSubstream>) -> Self {
         Self {
             mdns,
@@ -21,7 +21,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> Discovery<TSubstream> {
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventProcess<MdnsEvent>
-    for Discovery<TSubstream>
+    for NetworkBehaviourComposer<TSubstream>
 {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
@@ -41,7 +41,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventPro
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventProcess<PbftEvent>
-    for Discovery<TSubstream>
+    for NetworkBehaviourComposer<TSubstream>
 {
     fn inject_event(&mut self, event: PbftEvent) {
         println!("inject_event : PbftEvent: {:?}", event);

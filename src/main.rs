@@ -5,7 +5,7 @@ use crate::node_type::{CurrentType, NodeType};
 use crate::state::State;
 use libp2p::{PeerId, build_development_transport, Swarm};
 use libp2p::identity::Keypair;
-use crate::discovery::Discovery;
+use crate::network_behaviour_composer::NetworkBehaviourComposer;
 use futures::Async;
 use futures::stream::Stream;
 use std::collections::{HashSet, VecDeque};
@@ -16,7 +16,7 @@ use tokio::prelude::{AsyncRead, AsyncWrite};
 use std::error::Error;
 
 mod config;
-mod discovery;
+mod network_behaviour_composer;
 mod handler;
 mod message_handler;
 mod behavior;
@@ -47,7 +47,7 @@ fn main() {
     let transport = build_development_transport(local_key);
     let mut swarm = Swarm::new(
         transport,
-        Discovery::new(
+        NetworkBehaviourComposer::new(
             libp2p::mdns::Mdns::new().expect("Failed to create mDNS service"),
             Pbft::new(),
         ),
