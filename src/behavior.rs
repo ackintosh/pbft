@@ -178,13 +178,13 @@ where
     fn inject_node_event(&mut self, peer_id: PeerId, handler_event: PbftHandlerEvent) {
         println!("[Pbft::inject_node_event] handler_event: {:?}", handler_event);
         match handler_event {
-            PbftHandlerEvent::ProcessPrePrepareRequest { request } => {
+            PbftHandlerEvent::ProcessPrePrepareRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] request: {:?}", request);
                 self.process_pre_prepare(request).unwrap(); // TODO: error handling
 
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
-                    event: PbftHandlerIn::PrePrepareResponse("OK".into()),
+                    event: PbftHandlerIn::PrePrepareResponse("OK".into(), connection_id),
                 });
             }
             PbftHandlerEvent::PrePrepareResponse { response } => {

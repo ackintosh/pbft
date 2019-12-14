@@ -15,7 +15,7 @@ use std::error::Error;
 #[derive(Debug)]
 pub enum PbftHandlerIn {
     PrePrepareRequest(PrePrepare),
-    PrePrepareResponse(Vec<u8>),
+    PrePrepareResponse(Vec<u8>, ConnectionId),
 }
 
 pub struct PbftHandler<TSubstream>
@@ -24,7 +24,25 @@ where
 {
     config: PbftProtocolConfig,
     substreams: Vec<SubstreamState<Negotiated<TSubstream>>>,
+    next_connection_id: ConnectionId,
     _marker: std::marker::PhantomData<TSubstream>,
+}
+
+/// Unique identifier for a connection.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConnectionId(u64);
+
+impl ConnectionId {
+    fn new() -> Self {
+        Self(0)
+    }
+
+    fn next_id(&mut self) -> Self {
+        let next = self.0;
+        self.0 += 1;
+        println!("[ConnectionId::next_id] issued the connection_id: {:?}", next);
+        Self(next)
+    }
 }
 
 enum SubstreamState<TSubstream>
@@ -43,9 +61,9 @@ where
     /// The substream is being closed.
     OutClosing(PbftOutStreamSink<TSubstream>),
     /// Waiting for a request from the remote.
-    InWaitingMessage(PbftInStreamSink<TSubstream>),
+    InWaitingMessage(ConnectionId, PbftInStreamSink<TSubstream>),
     /// Waiting for the user to send a `PbftHandlerIn` event containing the response.
-    InWaitingUser(PbftInStreamSink<TSubstream>),
+    InWaitingUser(ConnectionId, PbftInStreamSink<TSubstream>),
     /// Waiting to send an answer back to the remote.
     InPendingSend(PbftInStreamSink<TSubstream>, Vec<u8>),
     /// Waiting to flush an answer back to the remote.
@@ -58,6 +76,7 @@ where
 pub enum PbftHandlerEvent {
     ProcessPrePrepareRequest {
         request: PrePrepare,
+        connection_id: ConnectionId,
     },
     PrePrepareResponse {
         response: Vec<u8>,
@@ -72,6 +91,7 @@ where
         Self {
             config: PbftProtocolConfig {},
             substreams: Vec::new(),
+            next_connection_id: ConnectionId::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -99,7 +119,7 @@ where
         protocol: <Self::InboundProtocol as InboundUpgrade<TSubstream>>::Output,
     ) {
         println!("PbftHandler::inject_fully_negotiated_inbound()");
-        self.substreams.push(SubstreamState::InWaitingMessage(protocol));
+        self.substreams.push(SubstreamState::InWaitingMessage(self.next_connection_id.next_id(), protocol));
     }
 
     fn inject_fully_negotiated_outbound(
@@ -119,18 +139,18 @@ where
                     SubstreamState::OutPendingOpen(MessageType::HandlerPrePrepare(request))
                 );
             }
-            PbftHandlerIn::PrePrepareResponse(response) => {
-                println!("[PbftHandler::inject_event] [PbftHandlerIn::PrePrepareResponse] response: {:?}", response);
+            PbftHandlerIn::PrePrepareResponse(response, connection_id) => {
+                println!("[PbftHandler::inject_event] [PbftHandlerIn::PrePrepareResponse] response: {:?}, connection_id: {:?}", response, connection_id);
                 let pos = self.substreams.iter().position(|state| {
                     match state {
-                        SubstreamState::InWaitingUser(_) => true, // TODO: select appropriate connection
+                        SubstreamState::InWaitingUser(substream_connection_id, _) => substream_connection_id.clone() == connection_id,
                         _ => false,
                     }
                 });
 
                 if let Some(pos) = pos {
-                    let substream = match self.substreams.remove(pos) {
-                        SubstreamState::InWaitingUser(substream) => substream,
+                    let (connection_id, substream) = match self.substreams.remove(pos) {
+                        SubstreamState::InWaitingUser(connection_id, substream) => (connection_id, substream),
                         _ => unreachable!(),
                     };
                     self.substreams.push(SubstreamState::InPendingSend(substream, response));
@@ -313,20 +333,20 @@ where
                 }
             }
         }
-        SubstreamState::InWaitingMessage(mut substream) => {
+        SubstreamState::InWaitingMessage(connection_id, mut substream) => {
             match substream.poll() {
                 Ok(Async::Ready(Some(msg))) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Ready(Some)] msg: {:?}", msg);
                     (
-                        Some(SubstreamState::InWaitingUser(substream)),
-                        Some(ProtocolsHandlerEvent::Custom(message_to_handler_event(msg))),
+                        Some(SubstreamState::InWaitingUser(connection_id.clone(), substream)),
+                        Some(ProtocolsHandlerEvent::Custom(message_to_handler_event(msg, connection_id))),
                         false,
                     )
                 },
                 Ok(Async::NotReady) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [NotReady]");
                     (
-                        Some(SubstreamState::InWaitingMessage(substream)),
+                        Some(SubstreamState::InWaitingMessage(connection_id, substream)),
                         None,
                         true,
                     )
@@ -341,10 +361,10 @@ where
                 }
             }
         }
-        SubstreamState::InWaitingUser(mut substream) => {
+        SubstreamState::InWaitingUser(connection_id, mut substream) => {
             println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingUser]");
             (
-                Some(SubstreamState::InWaitingUser(substream)),
+                Some(SubstreamState::InWaitingUser(connection_id, substream)),
                 None,
                 false,
             )
@@ -416,11 +436,14 @@ where
     }
 }
 
-fn message_to_handler_event(message: MessageType) -> PbftHandlerEvent {
+fn message_to_handler_event(
+    message: MessageType,
+    connection_id: ConnectionId,
+) -> PbftHandlerEvent {
     // TODO
     match message {
         MessageType::HandlerPrePrepare(pre_prepare) => {
-            PbftHandlerEvent::ProcessPrePrepareRequest { request: pre_prepare }
+            PbftHandlerEvent::ProcessPrePrepareRequest { request: pre_prepare, connection_id }
         }
         _ => unreachable!()
     }
