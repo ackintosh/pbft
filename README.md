@@ -1,5 +1,7 @@
 # PBFT
 
+A PBFT implementation based on [rust-libp2p](https://github.com/libp2p/rust-libp2p).
+
 ```bash
 # primary replica
 $ cargo run primary
