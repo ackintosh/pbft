@@ -5,7 +5,7 @@ use crate::config::Port;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
     pub r#type: MessageType,
-    payload: String,
+    pub payload: String,
 }
 
 impl Message {
@@ -83,6 +83,10 @@ impl PrePrepare {
     pub fn from(view: u64, n: u64, message: String) -> Self {
         let digest = digest(message.as_bytes());
         Self { view, n, digest, message }
+    }
+
+    pub fn from_payload(payload: &String) -> Self {
+        serde_json::from_str(payload).unwrap()
     }
 
     pub fn validate_digest(&self) -> Result<(), String> {

@@ -1,7 +1,7 @@
 use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::ProtocolsHandler;
-use crate::message::{ClientRequest, MessageType, PrePrepare};
+use crate::message::{ClientRequest, MessageType, PrePrepare, Message};
 use tokio::prelude::{AsyncRead, AsyncWrite, Async, AsyncSink};
 use crate::behavior::PbftFailure;
 use futures::Poll;
@@ -11,6 +11,7 @@ use crate::protocol_config::{PbftProtocolConfig, PbftOutStreamSink, PbftInStream
 use libp2p::{OutboundUpgrade, InboundUpgrade};
 use std::error::Error;
 
+/// Event to send to the handler.
 #[derive(Debug)]
 pub enum PbftHandlerIn {
     ClientRequest(ClientRequest),
@@ -56,10 +57,10 @@ where
 #[derive(Debug)]
 pub enum PbftHandlerEvent {
     PrePrepareRequest {
-        message: MessageType,
+        request: PrePrepare,
     },
     PrePrepareResponse {
-        message: Vec<u8>,
+        response: Vec<u8>,
     },
 }
 
@@ -104,7 +105,7 @@ where
     fn inject_fully_negotiated_outbound(
         &mut self,
         protocol: <Self::OutboundProtocol as OutboundUpgrade<TSubstream>>::Output,
-        message: MessageType
+        message: Self::OutboundOpenInfo,
     ) {
         println!("PbftHandler::inject_fully_negotiated_outbound()");
         self.substreams.push(SubstreamState::OutPendingSend(protocol, message));
@@ -271,11 +272,11 @@ where
         SubstreamState::OutWaitingAnswer(mut substream) => {
             println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer]");
             match substream.poll() {
-                Ok(Async::Ready(Some(msg))) => {
-                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Ready::Some] msg: {:?}", msg);
+                Ok(Async::Ready(Some(response))) => {
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Ready::Some] response: {:?}", response);
                     (
                         Some(SubstreamState::OutClosing(substream)),
-                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareResponse { message: msg })), // TODO
+                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareResponse { response })), // TODO
                         true,
                     )
                 }
@@ -323,7 +324,7 @@ where
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Ready(Some)] msg: {:?}", msg);
                     (
                         Some(SubstreamState::InWaitingUser(substream)),
-                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareRequest { message: msg })), // TODO
+                        Some(ProtocolsHandlerEvent::Custom(message_to_handler_event(msg))),
                         false,
                     )
                 },
@@ -417,5 +418,15 @@ where
                 }
             }
         }
+    }
+}
+
+fn message_to_handler_event(message: MessageType) -> PbftHandlerEvent {
+    // TODO
+    match message {
+        MessageType::HandlerPrePrepare(pre_prepare) => {
+            PbftHandlerEvent::PrePrepareRequest { request: pre_prepare }
+        }
+        _ => unreachable!()
     }
 }

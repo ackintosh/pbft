@@ -1,4 +1,5 @@
 use libp2p::mdns::{Mdns, MdnsEvent};
+use libp2p::swarm::NetworkBehaviourEventProcess;
 use libp2p::{NetworkBehaviour, PeerId};
 use tokio::prelude::{AsyncRead, AsyncWrite};
 use std::collections::HashSet;
@@ -20,8 +21,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourComposer<TSubstream> {
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventProcess<MdnsEvent>
-    for NetworkBehaviourComposer<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent> for NetworkBehaviourComposer<TSubstream>
 {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
@@ -45,8 +45,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventPro
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> libp2p::swarm::NetworkBehaviourEventProcess<PbftEvent>
-    for NetworkBehaviourComposer<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PbftEvent> for NetworkBehaviourComposer<TSubstream>
 {
     fn inject_event(&mut self, event: PbftEvent) {
         println!("inject_event : PbftEvent: {:?}", event);

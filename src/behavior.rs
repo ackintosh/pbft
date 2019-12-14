@@ -127,17 +127,18 @@ where
     fn inject_node_event(&mut self, peer_id: PeerId, handler_event: PbftHandlerEvent) {
         println!("[Pbft::inject_node_event] handler_event: {:?}", handler_event);
         match handler_event {
-            PbftHandlerEvent::PrePrepareRequest { message } => {
-                // TODO
-                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] message: {:?}", message);
+            PbftHandlerEvent::PrePrepareRequest { request } => {
+                // TODO: process the PrePrepare request
+
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] request: {:?}", request);
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::PrePrepareResponse("OK".into()),
                 });
             }
-            PbftHandlerEvent::PrePrepareResponse { message } => {
-                // TODO
-                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] message: {:?}", message);
+            PbftHandlerEvent::PrePrepareResponse { response } => {
+                // TODO: handle the response
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response: {:?}", response);
             }
         }
     }

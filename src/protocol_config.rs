@@ -6,7 +6,7 @@ use libp2p::{InboundUpgrade, OutboundUpgrade};
 use futures::future::FutureResult;
 use tokio::codec::Framed;
 use unsigned_varint::codec::UviBytes;
-use crate::message::MessageType;
+use crate::message::{MessageType, Message, PrePrepare};
 use futures::{Stream, Sink};
 
 #[derive(Clone)]
@@ -47,16 +47,17 @@ where
         println!("PbftProtocolConfig::upgrade_inbound");
         let mut codec = UviBytes::default();
 
+        // TODO: Protocol Buffers
         futures::future::ok(
             Framed::new(socket, codec)
                 .from_err()
                 .with::<_, fn(_) -> _, _>(|response| {
-                    println!("PbftProtocolConfig::upgrade_inbound -> with, response : {:?}", response);
-                    Ok([1, 2, 3].to_vec()) // TODO
+                    println!("[PbftProtocolConfig::upgrade_inbound] [with] response: {:?}", response);
+                    Ok(response)
                 })
                 .and_then::<fn(_) -> _, _>(|bytes| {
-                    println!("PbftProtocolConfig::upgrade_inbound -> and_then");
-                    Ok(MessageType::Prepare) // FIXME
+                    println!("[PbftProtocolConfig::upgrade_inbound] [and_then]");
+                    Ok(bytes_to_message(&bytes))
                 })
         )
     }
@@ -75,19 +76,20 @@ where
         socket: Negotiated<TSubstream>,
         info: Self::Info,
     ) -> Self::Future {
-        println!("PbftProtocolConfig::upgrade_outbound");
+        println!("[PbftProtocolConfig::upgrade_outbound]");
         let mut codec = UviBytes::default();
 
+        // TODO: Protocol Buffers
         futures::future::ok(
             Framed::new(socket, codec)
                 .from_err()
-                .with::<_, fn(_) -> _, _>(|request| {
-                    println!("PbftProtocolConfig::upgrade_outbound -> with, request : {:?}", request);
-                    Ok([1, 2, 3].to_vec()) // TODO
+                .with::<_, fn(_) -> _, _>(|outbound_message| {
+                    println!("[PbftProtocolConfig::upgrade_outbound] [with] outbound_message : {:?}", outbound_message);
+                    Ok(message_to_json(&outbound_message).into_bytes())
                 })
                 .and_then::<fn(_) -> _, _>(|bytes| {
-                    println!("PbftProtocolConfig::upgrade_outbound -> and_then");
-                    Ok([4, 5, 6].to_vec()) // TODO
+                    println!("[PbftProtocolConfig::upgrade_outbound] [and_then]");
+                    Ok(bytes.to_vec())
                 })
         )
     }
@@ -107,3 +109,26 @@ pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
     fn(BytesMut) -> Result<B, std::io::Error>,
     Result<B, std::io::Error>,
 >;
+
+fn message_to_json(message: &MessageType) -> String {
+    match message {
+        MessageType::HandlerPrePrepare(pre_prepare) => {
+            Message::new(
+                MessageType::PrePrepare,
+                pre_prepare.to_string(),
+            ).to_string()
+        }
+        _ => unreachable!()
+    }
+}
+
+fn bytes_to_message(bytes: &BytesMut) -> MessageType {
+    let message = Message::from(&String::from_utf8(bytes.to_vec()).unwrap());
+    println!("[bytes_to_message] message: {:?}", message);
+    match message.r#type {
+        MessageType::PrePrepare => {
+            MessageType::HandlerPrePrepare(PrePrepare::from_payload(&message.payload))
+        }
+        _ => unreachable!()
+    }
+}
