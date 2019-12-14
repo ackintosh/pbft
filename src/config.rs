@@ -40,8 +40,8 @@ impl Port {
     }
 }
 
-impl From<&String> for Port {
-    fn from(p: &String) -> Self {
+impl From<&str> for Port {
+    fn from(p: &str) -> Self {
         let port: u64 = p.parse().expect("Failed to port as u64");
         Port { value: port }
     }

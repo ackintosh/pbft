@@ -2,12 +2,12 @@
 
 ```bash
 # primary replica
-$ cargo run 8000
+$ cargo run primary
 
 # backup replicas
-$ cargo run 8001
-$ cargo run 8002
-$ cargo run 8003
+$ cargo run 
+$ cargo run 
+$ cargo run 
 
 # client
 $ telnet 127.0.0.1 8000

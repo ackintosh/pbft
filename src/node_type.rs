@@ -1,7 +1,7 @@
 use crate::config::{Config, Port};
 
 #[derive(Debug, PartialEq)]
-enum NodeType {
+pub enum NodeType {
     Primary,
     Backup,
 }
