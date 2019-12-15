@@ -7,7 +7,7 @@ use futures::Poll;
 use libp2p::PeerId;
 use futures::future::FutureResult;
 use std::collections::{VecDeque, HashSet};
-use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare};
+use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
 
@@ -180,12 +180,25 @@ where
         match handler_event {
             PbftHandlerEvent::ProcessPrePrepareRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] request: {:?}", request);
-                self.process_pre_prepare(request).unwrap(); // TODO: error handling
+                self.process_pre_prepare(request.clone()).unwrap(); // TODO: error handling
 
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::PrePrepareResponse("OK".into(), connection_id),
                 });
+
+                // If backup replica accepts the message, it enters the prepare phase by multicasting a PREPARE message to
+                // all other replicas and adds both messages to its log.
+                let prepare = Prepare::from(&request);
+                self.state.insert_prepare(prepare.clone());
+
+                // TODO: enable the prepare phase
+//                for peer in self.connected_peers.iter() {
+//                    self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+//                        peer_id: peer.peer_id.clone(),
+//                        event: PbftHandlerIn::PrepareRequest(prepare.clone())
+//                    })
+//                }
             }
             PbftHandlerEvent::PrePrepareResponse { response } => {
                 // TODO: handle the response
@@ -197,6 +210,15 @@ where
                     // TODO: retry?
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
                 }
+            }
+            PbftHandlerEvent::ProcessPrepareRequest { request, connection_id } => {
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessPrepareRequest] request: {:?}", request);
+                // TODO: process the message
+
+                self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                    peer_id,
+                    event: PbftHandlerIn::PrepareResponse("OK".into(), connection_id)
+                });
             }
         }
     }

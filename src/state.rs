@@ -41,7 +41,7 @@ impl State {
     }
 
     pub fn insert_prepare(&mut self, prepare: Prepare) {
-        println!("The Prepare message has been stored into logs: {}", prepare);
+        println!("[State::insert_pre_prepare] The Prepare message has been stored into logs: {}", prepare);
 
         let key = PrepareKey(prepare.view(), prepare.n());
         let p = self.prepares

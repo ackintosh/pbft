@@ -1,7 +1,7 @@
 use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::ProtocolsHandler;
-use crate::message::{ClientRequest, MessageType, PrePrepare, Message};
+use crate::message::{ClientRequest, MessageType, PrePrepare, Message, Prepare};
 use tokio::prelude::{AsyncRead, AsyncWrite, Async, AsyncSink};
 use crate::behavior::PbftFailure;
 use futures::Poll;
@@ -16,6 +16,8 @@ use std::error::Error;
 pub enum PbftHandlerIn {
     PrePrepareRequest(PrePrepare),
     PrePrepareResponse(Vec<u8>, ConnectionId),
+    PrepareRequest(Prepare),
+    PrepareResponse(Vec<u8>, ConnectionId),
 }
 
 pub struct PbftHandler<TSubstream>
@@ -81,6 +83,10 @@ pub enum PbftHandlerEvent {
     PrePrepareResponse {
         response: Vec<u8>,
     },
+    ProcessPrepareRequest {
+        request: Prepare,
+        connection_id: ConnectionId,
+    }
 }
 
 impl<TSubstream> PbftHandler<TSubstream>
@@ -94,6 +100,17 @@ where
             next_connection_id: ConnectionId::new(),
             _marker: std::marker::PhantomData,
         }
+    }
+
+    fn find_waiting_substream_state_pos(&self, connection_id: &ConnectionId) -> Option<usize> {
+        self.substreams.iter().position(|state| {
+            match state {
+                SubstreamState::InWaitingUser(substream_connection_id, _) => {
+                    substream_connection_id == connection_id
+                }
+                _ => false
+            }
+        })
     }
 }
 
@@ -149,6 +166,23 @@ where
                 });
 
                 if let Some(pos) = pos {
+                    let (connection_id, substream) = match self.substreams.remove(pos) {
+                        SubstreamState::InWaitingUser(connection_id, substream) => (connection_id, substream),
+                        _ => unreachable!(),
+                    };
+                    self.substreams.push(SubstreamState::InPendingSend(substream, response));
+                }
+            }
+            PbftHandlerIn::PrepareRequest(request) => {
+                println!("[PbftHandler::inject_event] [PbftHandlerIn::PrepareRequest] request: {:?}", request);
+                self.substreams.push(
+                    SubstreamState::OutPendingOpen(MessageType::HandlerPrepare(request))
+                );
+            }
+            PbftHandlerIn::PrepareResponse(response, connection_id) => {
+                println!("[PbftHandler::inject_event] [PbftHandlerIn::PrepareResponse] response: {:?}, connection_id: {:?}", response, connection_id);
+
+                if let Some(pos) = self.find_waiting_substream_state_pos(&connection_id) {
                     let (connection_id, substream) = match self.substreams.remove(pos) {
                         SubstreamState::InWaitingUser(connection_id, substream) => (connection_id, substream),
                         _ => unreachable!(),
@@ -445,6 +479,9 @@ fn message_to_handler_event(
         MessageType::HandlerPrePrepare(pre_prepare) => {
             PbftHandlerEvent::ProcessPrePrepareRequest { request: pre_prepare, connection_id }
         }
-        _ => unreachable!()
+        MessageType::HandlerPrepare(prepare) => {
+            PbftHandlerEvent::ProcessPrepareRequest { request: prepare, connection_id }
+        }
+        MessageType::ClientRequest | MessageType::PrePrepare | MessageType::Prepare => unreachable!()
     }
 }

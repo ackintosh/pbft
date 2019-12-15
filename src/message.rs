@@ -30,6 +30,7 @@ pub enum MessageType {
     PrePrepare,
     Prepare,
     HandlerPrePrepare(PrePrepare),
+    HandlerPrepare(Prepare),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -130,15 +131,16 @@ impl PrePrepareSequence {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Prepare {
     view: u64,
     n: u64,
     digest: String,
-    i: Port,
+    i: Port, // TODO: remove
 }
 
 impl Prepare {
+    #[deprecated]
     pub fn new(pre_prepare: &PrePrepare, i: &Port) -> Self {
         Self {
             view: pre_prepare.view,
@@ -146,6 +148,19 @@ impl Prepare {
             digest: pre_prepare.digest.clone(),
             i: i.clone(),
         }
+    }
+
+    pub fn from(pre_prepare: &PrePrepare) -> Self {
+        Self {
+            view: pre_prepare.view,
+            n: pre_prepare.n,
+            digest: pre_prepare.digest.clone(),
+            i: "8888".into(), // TODO: remove
+        }
+    }
+
+    pub fn from_payload(payload: &String) -> Self {
+        serde_json::from_str(payload).unwrap()
     }
 
     pub fn view(&self) -> u64 {

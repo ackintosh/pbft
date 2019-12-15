@@ -6,7 +6,7 @@ use libp2p::{InboundUpgrade, OutboundUpgrade};
 use futures::future::FutureResult;
 use tokio::codec::Framed;
 use unsigned_varint::codec::UviBytes;
-use crate::message::{MessageType, Message, PrePrepare};
+use crate::message::{MessageType, Message, PrePrepare, Prepare};
 use futures::{Stream, Sink};
 
 #[derive(Clone)]
@@ -118,7 +118,13 @@ fn message_to_json(message: &MessageType) -> String {
                 pre_prepare.to_string(),
             ).to_string()
         }
-        _ => unreachable!()
+        MessageType::HandlerPrepare(prepare) => {
+            Message::new(
+                MessageType::Prepare,
+                prepare.to_string(),
+            ).to_string()
+        }
+        MessageType::ClientRequest | MessageType::PrePrepare | MessageType::Prepare => unreachable!()
     }
 }
 
@@ -129,6 +135,9 @@ fn bytes_to_message(bytes: &BytesMut) -> MessageType {
         MessageType::PrePrepare => {
             MessageType::HandlerPrePrepare(PrePrepare::from_payload(&message.payload))
         }
-        _ => unreachable!()
+        MessageType::Prepare => {
+            MessageType::HandlerPrepare(Prepare::from_payload(&message.payload))
+        }
+        MessageType::ClientRequest | MessageType::HandlerPrePrepare(_) | MessageType::HandlerPrepare(_) => unreachable!()
     }
 }
