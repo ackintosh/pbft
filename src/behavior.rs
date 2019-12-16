@@ -6,13 +6,14 @@ use tokio::prelude::{AsyncRead, AsyncWrite, Async};
 use futures::Poll;
 use libp2p::PeerId;
 use futures::future::FutureResult;
-use std::collections::{VecDeque, HashSet};
+use std::collections::{VecDeque, HashSet, HashMap};
 use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
 
 pub struct Pbft<TSubstream> {
-    connected_peers: HashSet<Peer>,
+    addresses: HashMap<PeerId, HashSet<Multiaddr>>,
+    connected_peers: HashSet<PeerId>,
     client_requests: VecDeque<ClientRequest>,
     queued_events: VecDeque<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>>,
     state: State,
@@ -38,6 +39,7 @@ impl Peer {
 impl<TSubstream> Pbft<TSubstream> {
     pub fn new() -> Self {
         Self {
+            addresses: HashMap::new(),
             connected_peers: HashSet::new(),
             client_requests: VecDeque::with_capacity(100), // FIXME
             queued_events: VecDeque::with_capacity(100), // FIXME
@@ -48,13 +50,23 @@ impl<TSubstream> Pbft<TSubstream> {
     }
 
     pub fn has_peer(&self, peer_id: &PeerId) -> bool {
-        self.connected_peers.iter().any(|peer| {
-            peer.peer_id == peer_id.clone()
+        self.connected_peers.iter().any(|connected_peer_id| {
+            connected_peer_id.clone() == peer_id.clone()
         })
     }
 
     pub fn add_peer(&mut self, peer_id: &PeerId, address: &Multiaddr) {
-        println!("Pbft::add_address(): {:?}, {:?}", peer_id, address);
+        println!("[Pbft::add_peer] {:?}, {:?}", peer_id, address);
+        {
+            let mut addresses = match self.addresses.get(peer_id) {
+                Some(addresses) => addresses.clone(),
+                None => HashSet::new(),
+            };
+            addresses.insert(address.clone());
+
+            self.addresses.insert(peer_id.clone(), addresses.clone());
+        }
+
         self.queued_events.push_back(NetworkBehaviourAction::DialPeer {
             peer_id: peer_id.clone(),
         });
@@ -71,9 +83,15 @@ impl<TSubstream> Pbft<TSubstream> {
             client_request.operation(),
         );
 
-        for peer in self.connected_peers.iter() {
+        println!("[Pbft::add_client_request] [broadcasting the pre_prepare message] pre_prepare: {:?}", pre_prepare);
+        println!("[Pbft::add_client_request] [broadcasting to the peers] connected_peers: {:?}", self.connected_peers);
+        if self.connected_peers.is_empty() {
+            panic!("[Pbft::add_client_request] !!! connected_peers is empty !!!");
+        }
+
+        for peer_id in self.connected_peers.iter() {
             self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
-                peer_id: peer.peer_id.clone(),
+                peer_id: peer_id.clone(),
                 event: PbftHandlerIn::PrePrepareRequest(pre_prepare.clone())
             });
         }
@@ -144,35 +162,38 @@ where
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        Vec::new() // TODO?
-//        let addresses = self.connected_peers.iter().filter(|peer| {
-//            peer.peer_id != peer_id.clone()
-//        }).map(|peer| {
-//            peer.address.clone()
-//        }).collect();
-//
-//        println!("Pbft::addresses_of_peer() : {:?}", addresses);
-//        addresses
+        println!("[Pbft::addresses_of_peer] peer_id: {:?}", peer_id);
+        match self.addresses.get(peer_id) {
+            Some(addresses) => {
+                println!("[Pbft::addresses_of_peer] peer_id: {:?}, addresses: {:?}", peer_id, addresses);
+                addresses.clone().into_iter().collect()
+            },
+            None => {
+                println!("[Pbft::addresses_of_peer] addresses not found. peer_id: {:?}", peer_id);
+                Vec::new()
+            }
+        }
     }
 
     fn inject_connected(&mut self, peer_id: PeerId, connected_point: ConnectedPoint) {
         println!("[Pbft::inject_connected] peer_id: {:?}, connected_point: {:?}", peer_id, connected_point);
-        let address = match connected_point {
-            ConnectedPoint::Dialer { address } => address,
-            ConnectedPoint::Listener { local_addr: _, send_back_addr } => send_back_addr
-        };
-        self.connected_peers.insert(Peer::new(peer_id, address));
+//        match connected_point {
+//            ConnectedPoint::Dialer { address } => {
+//            },
+//            ConnectedPoint::Listener { .. } => {}
+//        };
+        self.connected_peers.insert(peer_id);
+        println!("[Pbft::inject_connected] connected_peers: {:?}, addresses: {:?}", self.connected_peers, self.addresses);
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId, connected_point: ConnectedPoint) {
-        println!("Pbft::inject_disconnected()");
+        println!("[Pbft::inject_disconnected] {:?}, {:?}", peer_id, connected_point);
         let address = match connected_point {
             ConnectedPoint::Dialer { address } => address,
             ConnectedPoint::Listener { local_addr: _, send_back_addr } => send_back_addr
         };
-        let peer = Peer::new(peer_id.clone(), address);
-        println!("Disconnected to the peer: {:?}", peer);
-        self.connected_peers.remove(&peer);
+        self.connected_peers.remove(peer_id);
+        println!("[Pbft::inject_disconnected] connected_peers: {:?}, addresses: {:?}", self.connected_peers, self.addresses);
     }
 
     fn inject_node_event(&mut self, peer_id: PeerId, handler_event: PbftHandlerEvent) {
@@ -192,13 +213,17 @@ where
                 let prepare = Prepare::from(&request);
                 self.state.insert_prepare(prepare.clone());
 
-                // TODO: enable the prepare phase
-//                for peer in self.connected_peers.iter() {
-//                    self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
-//                        peer_id: peer.peer_id.clone(),
-//                        event: PbftHandlerIn::PrepareRequest(prepare.clone())
-//                    })
-//                }
+                if self.connected_peers.is_empty() {
+                    panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] !!! Peers not found !!!");
+                }
+
+                for peer_id in self.connected_peers.iter() {
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] [add queued_events] peer_id: {:?}", peer_id);
+                    self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                        peer_id: peer_id.clone(),
+                        event: PbftHandlerIn::PrepareRequest(prepare.clone())
+                    })
+                }
             }
             PbftHandlerEvent::PrePrepareResponse { response } => {
                 // TODO: handle the response

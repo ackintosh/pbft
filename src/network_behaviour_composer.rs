@@ -28,7 +28,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
             MdnsEvent::Discovered(list) => {
                 for (peer_id, address) in list {
                     if !self.pbft.has_peer(&peer_id) {
-                        println!("The node has been discovered: {:?}", address);
+                        println!("[NetworkBehaviourComposer::inject_event] [MdnsEvent::Discovered] The node has been discovered: {:?}", address);
                         self.pbft.add_peer(&peer_id, &address);
                     }
                 }
@@ -36,7 +36,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
             MdnsEvent::Expired(list) => {
                 for (peer_id, addr) in list {
                     if self.pbft.has_peer(&peer_id) {
-                        println!("The node has been expired: {:?}", addr);
+                        println!("[NetworkBehaviourComposer::inject_event] [MdnsEvent::Expired] The node has been expired: {:?}", addr);
                         // TODO
                     }
                 }

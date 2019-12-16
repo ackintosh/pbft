@@ -150,7 +150,7 @@ where
     }
 
     fn inject_event(&mut self, handler_in: PbftHandlerIn) {
-        println!("PbftHandler::inject_event() : {:?}", handler_in);
+        println!("[PbftHandler::inject_event] handler_in: {:?}", handler_in);
         match handler_in {
             PbftHandlerIn::PrePrepareRequest(request) => {
                 self.substreams.push_back(
@@ -172,6 +172,8 @@ where
                         _ => unreachable!(),
                     };
                     self.substreams.push_back(SubstreamState::InPendingSend(substream, response));
+                } else {
+                    panic!("[PbftHandler::inject_event] [PbftHandlerIn::PrePrepareResponse] substream state is not found, pos: {:?}, connection_id: {:?}", pos, connection_id);
                 }
             }
             PbftHandlerIn::PrepareRequest(request) => {
@@ -189,6 +191,8 @@ where
                         _ => unreachable!(),
                     };
                     self.substreams.push_back(SubstreamState::InPendingSend(substream, response));
+                } else {
+                    panic!("[PbftHandler::inject_event] [PbftHandlerIn::PrepareResponse] substream state is not found, connection_id: {:?}", connection_id);
                 }
             }
         }
@@ -385,7 +389,7 @@ where
                     (
                         Some(SubstreamState::InWaitingMessage(connection_id, substream)),
                         None,
-                        true,
+                        false,
                     )
                 },
                 Ok(Async::Ready(None)) => {
