@@ -8,8 +8,10 @@ use std::collections::{VecDeque, HashSet, HashMap};
 use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
+use libp2p::identity::Keypair;
 
 pub struct Pbft<TSubstream> {
+    keypair: Keypair,
     addresses: HashMap<PeerId, HashSet<Multiaddr>>,
     connected_peers: HashSet<PeerId>,
     queued_events: VecDeque<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>>,
@@ -19,8 +21,9 @@ pub struct Pbft<TSubstream> {
 }
 
 impl<TSubstream> Pbft<TSubstream> {
-    pub fn new() -> Self {
+    pub fn new(keypair: Keypair) -> Self {
         Self {
+            keypair,
             addresses: HashMap::new(),
             connected_peers: HashSet::new(),
             queued_events: VecDeque::with_capacity(100), // FIXME
@@ -87,7 +90,7 @@ impl<TSubstream> Pbft<TSubstream> {
         // If backup replica accepts the message, it enters the prepare phase by multicasting a PREPARE message to
         // all other replicas and adds both messages to its log.
         let prepare = Prepare::from(&pre_prepare);
-        self.state.insert_prepare(prepare.clone());
+        self.state.insert_prepare(PeerId::from_public_key(self.keypair.public()), prepare.clone());
 
         if self.connected_peers.is_empty() {
             panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] !!! Peers not found !!!");

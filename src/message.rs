@@ -5,12 +5,11 @@ use crate::config::Port;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
     pub r#type: MessageType,
-    pub payload: String,
 }
 
 impl Message {
-    pub fn new(r#type: MessageType, payload: String) -> Self {
-        Self {r#type, payload}
+    pub fn new(r#type: MessageType) -> Self {
+        Self {r#type}
     }
 
     pub fn from(s: &String) -> Self {
@@ -26,7 +25,7 @@ impl std::fmt::Display for Message {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MessageType {
-    ClientRequest,
+    ClientRequest(ClientRequest),
     PrePrepare(PrePrepare),
     Prepare(Prepare),
 }
@@ -45,12 +44,6 @@ impl ClientRequest {
 
     pub fn operation(&self) -> String {
         self.operation.clone()
-    }
-}
-
-impl From<Message> for ClientRequest {
-    fn from(m: Message) -> Self {
-        serde_json::from_str(&m.payload).unwrap()
     }
 }
 
@@ -99,12 +92,6 @@ impl std::fmt::Display for PrePrepare {
     }
 }
 
-impl From<Message> for PrePrepare {
-    fn from(m: Message) -> Self {
-        serde_json::from_str(&m.payload).unwrap()
-    }
-}
-
 pub struct PrePrepareSequence {
     value: u64,
 }
@@ -130,7 +117,6 @@ pub struct Prepare {
     view: u64,
     n: u64,
     digest: String,
-    i: Port, // TODO: remove
 }
 
 impl Prepare {
@@ -139,7 +125,6 @@ impl Prepare {
             view: pre_prepare.view,
             n: pre_prepare.n,
             digest: pre_prepare.digest.clone(),
-            i: "8888".into(), // TODO: remove
         }
     }
 
@@ -149,10 +134,6 @@ impl Prepare {
 
     pub fn n(&self) -> u64 {
         self.n
-    }
-
-    pub fn i(&self) -> Port {
-        self.i.clone()
     }
 }
 

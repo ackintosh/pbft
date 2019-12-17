@@ -41,12 +41,12 @@ fn main() {
     let local_key = Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
 
-    let transport = build_development_transport(local_key);
+    let transport = build_development_transport(local_key.clone());
     let mut swarm = Swarm::new(
         transport,
         NetworkBehaviourComposer::new(
             libp2p::mdns::Mdns::new().expect("Failed to create mDNS service"),
-            Pbft::new(),
+            Pbft::new(local_key),
         ),
         local_peer_id
     );

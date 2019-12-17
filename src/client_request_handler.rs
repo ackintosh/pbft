@@ -40,9 +40,9 @@ impl ClientRequestHandler {
         println!("{:?}", message);
 
         match message.r#type {
-             MessageType::ClientRequest => {
+             MessageType::ClientRequest(client_request) => {
                  // TODO: transfer the messageto primary replica if this node is running as backup
-                 self.client_requests.write().unwrap().push_back(message.into());
+                 self.client_requests.write().unwrap().push_back(client_request);
             },
             _ => unreachable!()
         }

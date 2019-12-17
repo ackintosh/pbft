@@ -3,12 +3,13 @@ use std::collections::HashMap;
 use crate::view::View;
 use crate::message::{PrePrepare, Prepare};
 use crate::config::Port;
+use libp2p::PeerId;
 
 pub struct State {
     logs: Vec<String>,
     current_view: Arc<RwLock<View>>,
     pre_prepares: HashMap<PrePrepareKey, PrePrepare>,
-    prepares: HashMap<PrepareKey, HashMap<Port, Prepare>>,
+    prepares: HashMap<PrepareKey, HashMap<PeerId, Prepare>>,
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -40,14 +41,14 @@ impl State {
         );
     }
 
-    pub fn insert_prepare(&mut self, prepare: Prepare) {
+    pub fn insert_prepare(&mut self, peer_id: PeerId, prepare: Prepare) {
         println!("[State::insert_pre_prepare] The Prepare message has been stored into logs: {}", prepare);
 
         let key = PrepareKey(prepare.view(), prepare.n());
         let p = self.prepares
             .entry(key)
             .or_insert(HashMap::new());
-        p.insert(prepare.i(), prepare);
+        p.insert(peer_id, prepare);
     }
 
     pub fn get_pre_prepare(&self, pre_prepare: &PrePrepare) -> Option<&PrePrepare> {

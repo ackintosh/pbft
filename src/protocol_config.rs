@@ -115,22 +115,20 @@ fn message_to_json(message: &MessageType) -> String {
         MessageType::PrePrepare(pre_prepare) => {
             Message::new(
                 MessageType::PrePrepare(pre_prepare.clone()),
-                pre_prepare.to_string(),
             ).to_string()
         }
         MessageType::Prepare(prepare) => {
             Message::new(
                 MessageType::Prepare(prepare.clone()),
-                prepare.to_string(),
             ).to_string()
         }
-        MessageType::ClientRequest => unreachable!()
+        MessageType::ClientRequest(_) => unreachable!()
     }
 }
 
 fn bytes_to_message(bytes: &BytesMut) -> MessageType {
     let message = Message::from(&String::from_utf8(bytes.to_vec()).unwrap());
-    println!("[bytes_to_message] message: {:?}", message);
+    println!("[bytes_to_message] message: {:?}", message.to_string());
     match message.r#type {
         MessageType::PrePrepare(pre_prepare) => {
             MessageType::PrePrepare(pre_prepare)
@@ -138,6 +136,6 @@ fn bytes_to_message(bytes: &BytesMut) -> MessageType {
         MessageType::Prepare(prepare) => {
             MessageType::Prepare(prepare)
         }
-        MessageType::ClientRequest => unreachable!()
+        MessageType::ClientRequest(_) => unreachable!()
     }
 }

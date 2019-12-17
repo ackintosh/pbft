@@ -488,6 +488,6 @@ fn message_to_handler_event(
         MessageType::Prepare(prepare) => {
             PbftHandlerEvent::ProcessPrepareRequest { request: prepare, connection_id }
         }
-        MessageType::ClientRequest => unreachable!()
+        MessageType::ClientRequest(_) => unreachable!()
     }
 }
