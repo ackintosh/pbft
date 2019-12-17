@@ -101,7 +101,24 @@ impl<TSubstream> Pbft<TSubstream> {
 
     fn process_pre_prepare(&mut self, pre_prepare: PrePrepare) -> Result<(), String> {
         self.validate_pre_prepare(&pre_prepare)?;
-        self.state.insert_pre_prepare(pre_prepare);
+        self.state.insert_pre_prepare(pre_prepare.clone());
+
+        // If backup replica accepts the message, it enters the prepare phase by multicasting a PREPARE message to
+        // all other replicas and adds both messages to its log.
+        let prepare = Prepare::from(&pre_prepare);
+        self.state.insert_prepare(prepare.clone());
+
+        if self.connected_peers.is_empty() {
+            panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] !!! Peers not found !!!");
+        }
+
+        for peer_id in self.connected_peers.iter() {
+            println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] [add queued_events] peer_id: {:?}", peer_id);
+            self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                peer_id: peer_id.clone(),
+                event: PbftHandlerIn::PrepareRequest(prepare.clone())
+            })
+        }
         Ok(())
     }
 
@@ -207,23 +224,6 @@ where
                     peer_id,
                     event: PbftHandlerIn::PrePrepareResponse("OK".into(), connection_id),
                 });
-
-                // If backup replica accepts the message, it enters the prepare phase by multicasting a PREPARE message to
-                // all other replicas and adds both messages to its log.
-                let prepare = Prepare::from(&request);
-                self.state.insert_prepare(prepare.clone());
-
-                if self.connected_peers.is_empty() {
-                    panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] !!! Peers not found !!!");
-                }
-
-                for peer_id in self.connected_peers.iter() {
-                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] [add queued_events] peer_id: {:?}", peer_id);
-                    self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
-                        peer_id: peer_id.clone(),
-                        event: PbftHandlerIn::PrepareRequest(prepare.clone())
-                    })
-                }
             }
             PbftHandlerEvent::PrePrepareResponse { response } => {
                 // TODO: handle the response
