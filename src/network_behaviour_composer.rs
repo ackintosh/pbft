@@ -1,9 +1,7 @@
 use libp2p::mdns::{Mdns, MdnsEvent};
 use libp2p::swarm::NetworkBehaviourEventProcess;
-use libp2p::{NetworkBehaviour, PeerId};
+use libp2p::NetworkBehaviour;
 use tokio::prelude::{AsyncRead, AsyncWrite};
-use std::collections::HashSet;
-use std::sync::{RwLock, Arc};
 use crate::behavior::{Pbft, PbftEvent};
 
 #[derive(NetworkBehaviour)]

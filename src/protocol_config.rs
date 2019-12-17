@@ -42,10 +42,10 @@ where
     fn upgrade_inbound(
         self,
         socket: Negotiated<TSubstream>,
-        info: Self::Info,
+        _info: Self::Info,
     ) -> Self::Future {
         println!("PbftProtocolConfig::upgrade_inbound");
-        let mut codec = UviBytes::default();
+        let codec = UviBytes::default();
 
         // TODO: Protocol Buffers
         futures::future::ok(
@@ -74,10 +74,10 @@ where
     fn upgrade_outbound(
         self,
         socket: Negotiated<TSubstream>,
-        info: Self::Info,
+        _info: Self::Info,
     ) -> Self::Future {
         println!("[PbftProtocolConfig::upgrade_outbound]");
-        let mut codec = UviBytes::default();
+        let codec = UviBytes::default();
 
         // TODO: Protocol Buffers
         futures::future::ok(

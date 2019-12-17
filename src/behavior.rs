@@ -3,9 +3,7 @@ use libp2p::swarm::{PollParameters, NetworkBehaviour, NetworkBehaviourAction};
 use libp2p::multiaddr::Multiaddr;
 use std::error::Error;
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
-use futures::Poll;
 use libp2p::PeerId;
-use futures::future::FutureResult;
 use std::collections::{VecDeque, HashSet, HashMap};
 use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
@@ -14,26 +12,10 @@ use crate::state::State;
 pub struct Pbft<TSubstream> {
     addresses: HashMap<PeerId, HashSet<Multiaddr>>,
     connected_peers: HashSet<PeerId>,
-    client_requests: VecDeque<ClientRequest>,
     queued_events: VecDeque<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>>,
     state: State,
     pre_prepare_sequence: PrePrepareSequence,
     _marker: std::marker::PhantomData<TSubstream>,
-}
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-struct Peer {
-    peer_id: PeerId,
-    address: Multiaddr,
-}
-
-impl Peer {
-    fn new(peer_id: PeerId, address: Multiaddr) -> Self {
-        Self {
-            peer_id,
-            address,
-        }
-    }
 }
 
 impl<TSubstream> Pbft<TSubstream> {
@@ -41,7 +23,6 @@ impl<TSubstream> Pbft<TSubstream> {
         Self {
             addresses: HashMap::new(),
             connected_peers: HashSet::new(),
-            client_requests: VecDeque::with_capacity(100), // FIXME
             queued_events: VecDeque::with_capacity(100), // FIXME
             state: State::new(),
             pre_prepare_sequence: PrePrepareSequence::new(),
@@ -205,10 +186,10 @@ where
 
     fn inject_disconnected(&mut self, peer_id: &PeerId, connected_point: ConnectedPoint) {
         println!("[Pbft::inject_disconnected] {:?}, {:?}", peer_id, connected_point);
-        let address = match connected_point {
-            ConnectedPoint::Dialer { address } => address,
-            ConnectedPoint::Listener { local_addr: _, send_back_addr } => send_back_addr
-        };
+//        let address = match connected_point {
+//            ConnectedPoint::Dialer { address } => address,
+//            ConnectedPoint::Listener { local_addr: _, send_back_addr } => send_back_addr
+//        };
         self.connected_peers.remove(peer_id);
         println!("[Pbft::inject_disconnected] connected_peers: {:?}, addresses: {:?}", self.connected_peers, self.addresses);
     }

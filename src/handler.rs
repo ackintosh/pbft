@@ -1,7 +1,7 @@
-use libp2p::core::{Negotiated, UpgradeInfo};
+use libp2p::core::Negotiated;
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::ProtocolsHandler;
-use crate::message::{ClientRequest, MessageType, PrePrepare, Message, Prepare};
+use crate::message::{MessageType, PrePrepare, Prepare};
 use tokio::prelude::{AsyncRead, AsyncWrite, Async, AsyncSink};
 use crate::behavior::PbftFailure;
 use futures::Poll;
@@ -9,7 +9,6 @@ use futures::sink::Sink;
 use futures::stream::Stream;
 use crate::protocol_config::{PbftProtocolConfig, PbftOutStreamSink, PbftInStreamSink};
 use libp2p::{OutboundUpgrade, InboundUpgrade};
-use std::error::Error;
 use std::collections::VecDeque;
 
 /// Event to send to the handler.
@@ -167,7 +166,7 @@ where
                 });
 
                 if let Some(pos) = pos {
-                    let (connection_id, substream) = match self.substreams.remove(pos) {
+                    let (_connection_id, substream) = match self.substreams.remove(pos) {
                         Some(SubstreamState::InWaitingToProcessMessage(connection_id, substream)) => (connection_id, substream),
                         _ => unreachable!(),
                     };
@@ -186,7 +185,7 @@ where
                 println!("[PbftHandler::inject_event] [PbftHandlerIn::PrepareResponse] response: {:?}, connection_id: {:?}", response, connection_id);
 
                 if let Some(pos) = self.find_waiting_substream_state_pos(&connection_id) {
-                    let (connection_id, substream) = match self.substreams.remove(pos) {
+                    let (_connection_id, substream) = match self.substreams.remove(pos) {
                         Some(SubstreamState::InWaitingToProcessMessage(connection_id, substream)) => (connection_id, substream),
                         _ => unreachable!(),
                     };
@@ -402,7 +401,7 @@ where
                 }
             }
         }
-        SubstreamState::InWaitingToProcessMessage(connection_id, mut substream) => {
+        SubstreamState::InWaitingToProcessMessage(connection_id, substream) => {
             println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingUser]");
             (
                 Some(SubstreamState::InWaitingToProcessMessage(connection_id, substream)),
@@ -429,7 +428,7 @@ where
                     )
                 },
                 Err(e) => {
-                    println!("[PbftHandler::handle_substream()] [SubstreamState::InPendingSend] [Err]");
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::InPendingSend] [Err]: {:?}", e);
                     (None, None, false) // TODO
                 }
             }
@@ -453,7 +452,7 @@ where
                     )
                 },
                 Err(e) => {
-                    println!("[PbftHandler::handle_substream()] [SubstreamState::InPendingFlush] [Err]");
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::InPendingFlush] [Err]: {:?}", e);
                     (None, None, false)
                 }
             }
@@ -469,7 +468,7 @@ where
                     (Some(SubstreamState::InClosing(substream)), None, false)
                 },
                 Err(e) => {
-                    println!("[PbftHandler::handle_substream()] [SubstreamState::InClosing] [Err]");
+                    println!("[PbftHandler::handle_substream()] [SubstreamState::InClosing] [Err]: {:?}", e);
                     (None, None, false) // TODO
                 }
             }

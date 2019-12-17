@@ -1,19 +1,16 @@
 use crate::config::Port;
 use crate::message_handler::MessageHandler;
 use std::sync::{Arc, RwLock};
-use crate::node_type::{CurrentType, NodeType};
-use crate::state::State;
+use crate::node_type::NodeType;
 use libp2p::{PeerId, build_development_transport, Swarm};
 use libp2p::identity::Keypair;
 use crate::network_behaviour_composer::NetworkBehaviourComposer;
 use futures::Async;
 use futures::stream::Stream;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use crate::behavior::Pbft;
-use crate::message::{MessageType, ClientRequest};
+use crate::message::ClientRequest;
 use std::thread::JoinHandle;
-use tokio::prelude::{AsyncRead, AsyncWrite};
-use std::error::Error;
 
 mod config;
 mod network_behaviour_composer;
@@ -84,7 +81,11 @@ fn determine_node_type(args: &Vec<String>) -> Result<NodeType, ()> {
         1 => Ok(NodeType::Backup),
         2 => {
             if let Some(node_type) = args.get(1) {
-                return Ok(NodeType::Primary)
+                if node_type == "primary" {
+                    return Ok(NodeType::Primary)
+                } else {
+                    panic!(format!("[main::determine_node_type] Invalid node_type: {:?}", node_type));
+                }
             } {
                 unreachable!();
             }
@@ -99,33 +100,9 @@ fn run_client_request_handler(
     let port: Port = "8000".into();
     println!("{:?}", port);
 
-    let config = match config::read_config() {
-        Ok(c) => {
-            println!("{:?}", c);
-            c
-        },
-        Err(e) => {
-            println!("{:?}", e);
-            std::process::exit(1);
-        }
-    };
-
-    let current_type = match CurrentType::from(&config, &port) {
-        Ok(c) => Arc::new(RwLock::new(c)),
-        Err(_) => {
-            println!("The port number does not exist in the p2p network configuration: {:?}", port);
-            std::process::exit(1);
-        }
-    };
-
-    let state = Arc::new(RwLock::new(State::new()));
-
     std::thread::spawn(move || {
         MessageHandler::new(
-            config,
             port,
-            current_type,
-            state,
             client_requests,
         ).listen();
     })

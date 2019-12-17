@@ -140,16 +140,6 @@ pub struct Prepare {
 }
 
 impl Prepare {
-    #[deprecated]
-    pub fn new(pre_prepare: &PrePrepare, i: &Port) -> Self {
-        Self {
-            view: pre_prepare.view,
-            n: pre_prepare.n,
-            digest: pre_prepare.digest.clone(),
-            i: i.clone(),
-        }
-    }
-
     pub fn from(pre_prepare: &PrePrepare) -> Self {
         Self {
             view: pre_prepare.view,
