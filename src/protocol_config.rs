@@ -6,7 +6,7 @@ use libp2p::{InboundUpgrade, OutboundUpgrade};
 use futures::future::FutureResult;
 use tokio::codec::Framed;
 use unsigned_varint::codec::UviBytes;
-use crate::message::{MessageType, Message, PrePrepare, Prepare};
+use crate::message::{MessageType, Message};
 use futures::{Stream, Sink};
 
 #[derive(Clone)]

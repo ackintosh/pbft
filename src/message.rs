@@ -84,10 +84,6 @@ impl PrePrepare {
         Self { view, n, digest, message }
     }
 
-    pub fn from_payload(payload: &String) -> Self {
-        serde_json::from_str(payload).unwrap()
-    }
-
     pub fn validate_digest(&self) -> Result<(), String> {
         if self.digest == digest(&self.message.as_bytes()) {
             Ok(())
@@ -145,10 +141,6 @@ impl Prepare {
             digest: pre_prepare.digest.clone(),
             i: "8888".into(), // TODO: remove
         }
-    }
-
-    pub fn from_payload(payload: &String) -> Self {
-        serde_json::from_str(payload).unwrap()
     }
 
     pub fn view(&self) -> u64 {
