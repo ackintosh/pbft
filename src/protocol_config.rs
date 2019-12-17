@@ -112,19 +112,19 @@ pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
 
 fn message_to_json(message: &MessageType) -> String {
     match message {
-        MessageType::HandlerPrePrepare(pre_prepare) => {
+        MessageType::PrePrepare(pre_prepare) => {
             Message::new(
-                MessageType::PrePrepare,
+                MessageType::PrePrepare(pre_prepare.clone()),
                 pre_prepare.to_string(),
             ).to_string()
         }
-        MessageType::HandlerPrepare(prepare) => {
+        MessageType::Prepare(prepare) => {
             Message::new(
-                MessageType::Prepare,
+                MessageType::Prepare(prepare.clone()),
                 prepare.to_string(),
             ).to_string()
         }
-        MessageType::ClientRequest | MessageType::PrePrepare | MessageType::Prepare => unreachable!()
+        MessageType::ClientRequest => unreachable!()
     }
 }
 
@@ -132,12 +132,12 @@ fn bytes_to_message(bytes: &BytesMut) -> MessageType {
     let message = Message::from(&String::from_utf8(bytes.to_vec()).unwrap());
     println!("[bytes_to_message] message: {:?}", message);
     match message.r#type {
-        MessageType::PrePrepare => {
-            MessageType::HandlerPrePrepare(PrePrepare::from_payload(&message.payload))
+        MessageType::PrePrepare(pre_prepare) => {
+            MessageType::PrePrepare(pre_prepare)
         }
-        MessageType::Prepare => {
-            MessageType::HandlerPrepare(Prepare::from_payload(&message.payload))
+        MessageType::Prepare(prepare) => {
+            MessageType::Prepare(prepare)
         }
-        MessageType::ClientRequest | MessageType::HandlerPrePrepare(_) | MessageType::HandlerPrepare(_) => unreachable!()
+        MessageType::ClientRequest => unreachable!()
     }
 }

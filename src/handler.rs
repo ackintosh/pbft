@@ -153,7 +153,7 @@ where
         match handler_in {
             PbftHandlerIn::PrePrepareRequest(request) => {
                 self.substreams.push_back(
-                    SubstreamState::OutPendingOpen(MessageType::HandlerPrePrepare(request))
+                    SubstreamState::OutPendingOpen(MessageType::PrePrepare(request))
                 );
             }
             PbftHandlerIn::PrePrepareResponse(response, connection_id) => {
@@ -178,7 +178,7 @@ where
             PbftHandlerIn::PrepareRequest(request) => {
                 println!("[PbftHandler::inject_event] [PbftHandlerIn::PrepareRequest] request: {:?}", request);
                 self.substreams.push_back(
-                    SubstreamState::OutPendingOpen(MessageType::HandlerPrepare(request))
+                    SubstreamState::OutPendingOpen(MessageType::Prepare(request))
                 );
             }
             PbftHandlerIn::PrepareResponse(response, connection_id) => {
@@ -482,12 +482,12 @@ fn message_to_handler_event(
 ) -> PbftHandlerEvent {
     // TODO
     match message {
-        MessageType::HandlerPrePrepare(pre_prepare) => {
+        MessageType::PrePrepare(pre_prepare) => {
             PbftHandlerEvent::ProcessPrePrepareRequest { request: pre_prepare, connection_id }
         }
-        MessageType::HandlerPrepare(prepare) => {
+        MessageType::Prepare(prepare) => {
             PbftHandlerEvent::ProcessPrepareRequest { request: prepare, connection_id }
         }
-        MessageType::ClientRequest | MessageType::PrePrepare | MessageType::Prepare => unreachable!()
+        MessageType::ClientRequest => unreachable!()
     }
 }

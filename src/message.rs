@@ -27,10 +27,8 @@ impl std::fmt::Display for Message {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MessageType {
     ClientRequest,
-    PrePrepare,
-    Prepare,
-    HandlerPrePrepare(PrePrepare),
-    HandlerPrepare(Prepare),
+    PrePrepare(PrePrepare),
+    Prepare(Prepare),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
