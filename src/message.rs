@@ -5,7 +5,7 @@ use crate::config::Port;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
     pub r#type: MessageType,
-    payload: String,
+    pub payload: String,
 }
 
 impl Message {
@@ -29,9 +29,11 @@ pub enum MessageType {
     ClientRequest,
     PrePrepare,
     Prepare,
+    HandlerPrePrepare(PrePrepare),
+    HandlerPrepare(Prepare),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClientRequest {
     operation: String,
     timestamp: u64,
@@ -54,7 +56,7 @@ impl From<Message> for ClientRequest {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PrePrepare {
     // view indicates the view in which the message is being sent
     view: u64,
@@ -82,6 +84,10 @@ impl PrePrepare {
     pub fn from(view: u64, n: u64, message: String) -> Self {
         let digest = digest(message.as_bytes());
         Self { view, n, digest, message }
+    }
+
+    pub fn from_payload(payload: &String) -> Self {
+        serde_json::from_str(payload).unwrap()
     }
 
     pub fn validate_digest(&self) -> Result<(), String> {
@@ -117,7 +123,7 @@ impl PrePrepareSequence {
     pub fn increment(&mut self) {
         let from = self.value.clone();
         self.value += 1;
-        println!("PrePrepareSequence has been incremented from {} to {}", from, self.value);
+        println!("[PrePrepareSequence::increment] value has been incremented from {} to {}", from, self.value);
     }
 
     pub fn value(&self) -> u64 {
@@ -125,22 +131,26 @@ impl PrePrepareSequence {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Prepare {
     view: u64,
     n: u64,
     digest: String,
-    i: Port,
+    i: Port, // TODO: remove
 }
 
 impl Prepare {
-    pub fn new(pre_prepare: &PrePrepare, i: &Port) -> Self {
+    pub fn from(pre_prepare: &PrePrepare) -> Self {
         Self {
             view: pre_prepare.view,
             n: pre_prepare.n,
             digest: pre_prepare.digest.clone(),
-            i: i.clone(),
+            i: "8888".into(), // TODO: remove
         }
+    }
+
+    pub fn from_payload(payload: &String) -> Self {
+        serde_json::from_str(payload).unwrap()
     }
 
     pub fn view(&self) -> u64 {
