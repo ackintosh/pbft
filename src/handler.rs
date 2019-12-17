@@ -65,8 +65,8 @@ where
     OutClosing(PbftOutStreamSink<TSubstream>),
     /// Waiting for a request from the remote.
     InWaitingMessage(ConnectionId, PbftInStreamSink<TSubstream>),
-    /// Waiting for the user to send a `PbftHandlerIn` event containing the response.
-    InWaitingUser(ConnectionId, PbftInStreamSink<TSubstream>),
+    /// Waiting to send a `PbftHandlerIn` event containing the response.
+    InWaitingToProcessMessage(ConnectionId, PbftInStreamSink<TSubstream>),
     /// Waiting to send an answer back to the remote.
     InPendingSend(PbftInStreamSink<TSubstream>, Vec<u8>),
     /// Waiting to flush an answer back to the remote.
@@ -106,7 +106,7 @@ where
     fn find_waiting_substream_state_pos(&self, connection_id: &ConnectionId) -> Option<usize> {
         self.substreams.iter().position(|state| {
             match state {
-                SubstreamState::InWaitingUser(substream_connection_id, _) => {
+                SubstreamState::InWaitingToProcessMessage(substream_connection_id, _) => {
                     substream_connection_id == connection_id
                 }
                 _ => false
@@ -161,14 +161,14 @@ where
                 println!("[PbftHandler::inject_event] [PbftHandlerIn::PrePrepareResponse] response: {:?}, connection_id: {:?}", response, connection_id);
                 let pos = self.substreams.iter().position(|state| {
                     match state {
-                        SubstreamState::InWaitingUser(substream_connection_id, _) => substream_connection_id.clone() == connection_id,
+                        SubstreamState::InWaitingToProcessMessage(substream_connection_id, _) => substream_connection_id.clone() == connection_id,
                         _ => false,
                     }
                 });
 
                 if let Some(pos) = pos {
                     let (connection_id, substream) = match self.substreams.remove(pos) {
-                        Some(SubstreamState::InWaitingUser(connection_id, substream)) => (connection_id, substream),
+                        Some(SubstreamState::InWaitingToProcessMessage(connection_id, substream)) => (connection_id, substream),
                         _ => unreachable!(),
                     };
                     self.substreams.push_back(SubstreamState::InPendingSend(substream, response));
@@ -187,7 +187,7 @@ where
 
                 if let Some(pos) = self.find_waiting_substream_state_pos(&connection_id) {
                     let (connection_id, substream) = match self.substreams.remove(pos) {
-                        Some(SubstreamState::InWaitingUser(connection_id, substream)) => (connection_id, substream),
+                        Some(SubstreamState::InWaitingToProcessMessage(connection_id, substream)) => (connection_id, substream),
                         _ => unreachable!(),
                     };
                     self.substreams.push_back(SubstreamState::InPendingSend(substream, response));
@@ -379,7 +379,7 @@ where
                 Ok(Async::Ready(Some(msg))) => {
                     println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingMessage] [Ready(Some)] msg: {:?}", msg);
                     (
-                        Some(SubstreamState::InWaitingUser(connection_id.clone(), substream)),
+                        Some(SubstreamState::InWaitingToProcessMessage(connection_id.clone(), substream)),
                         Some(ProtocolsHandlerEvent::Custom(message_to_handler_event(msg, connection_id))),
                         false,
                     )
@@ -402,10 +402,10 @@ where
                 }
             }
         }
-        SubstreamState::InWaitingUser(connection_id, mut substream) => {
+        SubstreamState::InWaitingToProcessMessage(connection_id, mut substream) => {
             println!("[PbftHandler::handle_substream()] [SubstreamState::InWaitingUser]");
             (
-                Some(SubstreamState::InWaitingUser(connection_id, substream)),
+                Some(SubstreamState::InWaitingToProcessMessage(connection_id, substream)),
                 None,
                 false,
             )
