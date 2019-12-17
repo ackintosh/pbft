@@ -5,12 +5,12 @@ use std::io::Read;
 use crate::message::{ClientRequest, Message, MessageType};
 use std::collections::VecDeque;
 
-pub struct MessageHandler {
+pub struct ClientRequestHandler {
     port: Port,
     client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
 }
 
-impl MessageHandler {
+impl ClientRequestHandler {
     pub fn new(
         port: Port,
         client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,

@@ -1,5 +1,5 @@
 use crate::config::Port;
-use crate::message_handler::MessageHandler;
+use crate::client_request_handler::ClientRequestHandler;
 use std::sync::{Arc, RwLock};
 use crate::node_type::NodeType;
 use libp2p::{PeerId, build_development_transport, Swarm};
@@ -15,7 +15,7 @@ use std::thread::JoinHandle;
 mod config;
 mod network_behaviour_composer;
 mod handler;
-mod message_handler;
+mod client_request_handler;
 mod behavior;
 mod protocol_config;
 mod state;
@@ -101,7 +101,7 @@ fn run_client_request_handler(
     println!("{:?}", port);
 
     std::thread::spawn(move || {
-        MessageHandler::new(
+        ClientRequestHandler::new(
             port,
             client_requests,
         ).listen();
