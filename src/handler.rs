@@ -1,7 +1,7 @@
 use libp2p::core::Negotiated;
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::ProtocolsHandler;
-use crate::message::{MessageType, PrePrepare, Prepare};
+use crate::message::{Message, PrePrepare, Prepare};
 use tokio::prelude::{AsyncRead, AsyncWrite, Async, AsyncSink};
 use crate::behavior::PbftFailure;
 use futures::Poll;
@@ -53,9 +53,9 @@ where
 {
     /// We haven't started opening the outgoing substream yet.
     /// Contains the request we want to send, and the user data if we expect an answer.
-    OutPendingOpen(MessageType),
+    OutPendingOpen(Message),
     /// Waiting to send a message to the remote.
-    OutPendingSend(PbftOutStreamSink<TSubstream>, MessageType),
+    OutPendingSend(PbftOutStreamSink<TSubstream>, Message),
     /// Waiting to flush the substream so that the data arrives to the remote.
     OutPendingFlush(PbftOutStreamSink<TSubstream>),
     // TODO: add timeout
@@ -124,7 +124,7 @@ where
     type Substream = TSubstream;
     type InboundProtocol = PbftProtocolConfig;
     type OutboundProtocol = PbftProtocolConfig;
-    type OutboundOpenInfo = MessageType;
+    type OutboundOpenInfo = Message;
 
     fn listen_protocol(&self) -> SubstreamProtocol<PbftProtocolConfig> {
         println!("PbftHandler::listen_protocol()");
@@ -153,7 +153,7 @@ where
         match handler_in {
             PbftHandlerIn::PrePrepareRequest(request) => {
                 self.substreams.push_back(
-                    SubstreamState::OutPendingOpen(MessageType::HandlerPrePrepare(request))
+                    SubstreamState::OutPendingOpen(Message::PrePrepare(request))
                 );
             }
             PbftHandlerIn::PrePrepareResponse(response, connection_id) => {
@@ -178,7 +178,7 @@ where
             PbftHandlerIn::PrepareRequest(request) => {
                 println!("[PbftHandler::inject_event] [PbftHandlerIn::PrepareRequest] request: {:?}", request);
                 self.substreams.push_back(
-                    SubstreamState::OutPendingOpen(MessageType::HandlerPrepare(request))
+                    SubstreamState::OutPendingOpen(Message::Prepare(request))
                 );
             }
             PbftHandlerIn::PrepareResponse(response, connection_id) => {
@@ -197,7 +197,7 @@ where
         }
     }
 
-    fn inject_dial_upgrade_error(&mut self, info: MessageType, error: ProtocolsHandlerUpgrErr<std::io::Error>) {
+    fn inject_dial_upgrade_error(&mut self, info: Message, error: ProtocolsHandlerUpgrErr<std::io::Error>) {
         println!("PbftHandler::inject_dial_upgrade_error(), info: {:?}, error: {:?}", info, error);
     }
 
@@ -206,7 +206,7 @@ where
         KeepAlive::Yes
     }
 
-    fn poll(&mut self) -> Poll<ProtocolsHandlerEvent<PbftProtocolConfig, MessageType, Self::OutEvent>, Self::Error> {
+    fn poll(&mut self) -> Poll<ProtocolsHandlerEvent<PbftProtocolConfig, Message, Self::OutEvent>, Self::Error> {
         println!("[PbftHandler::poll]");
 
         for _ in 0..self.substreams.len() {
@@ -257,7 +257,7 @@ fn handle_substream<TSubstream>(
     Option<
         ProtocolsHandlerEvent<
             PbftProtocolConfig,
-            MessageType,
+            Message,
             PbftHandlerEvent,
         >,
     >,
@@ -477,17 +477,17 @@ where
 }
 
 fn message_to_handler_event(
-    message: MessageType,
+    message: Message,
     connection_id: ConnectionId,
 ) -> PbftHandlerEvent {
     // TODO
     match message {
-        MessageType::HandlerPrePrepare(pre_prepare) => {
+        Message::PrePrepare(pre_prepare) => {
             PbftHandlerEvent::ProcessPrePrepareRequest { request: pre_prepare, connection_id }
         }
-        MessageType::HandlerPrepare(prepare) => {
+        Message::Prepare(prepare) => {
             PbftHandlerEvent::ProcessPrepareRequest { request: prepare, connection_id }
         }
-        MessageType::ClientRequest | MessageType::PrePrepare | MessageType::Prepare => unreachable!()
+        Message::ClientRequest(_) => unreachable!()
     }
 }

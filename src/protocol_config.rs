@@ -6,7 +6,7 @@ use libp2p::{InboundUpgrade, OutboundUpgrade};
 use futures::future::FutureResult;
 use tokio::codec::Framed;
 use unsigned_varint::codec::UviBytes;
-use crate::message::{MessageType, Message, PrePrepare, Prepare};
+use crate::message::Message;
 use futures::{Stream, Sink};
 
 #[derive(Clone)]
@@ -95,9 +95,9 @@ where
     }
 }
 
-pub type PbftInStreamSink<S> = PbftStreamSink<S, Vec<u8>, MessageType>;
+pub type PbftInStreamSink<S> = PbftStreamSink<S, Vec<u8>, Message>;
 
-pub type PbftOutStreamSink<S> = PbftStreamSink<S, MessageType, Vec<u8>>;
+pub type PbftOutStreamSink<S> = PbftStreamSink<S, Message, Vec<u8>>;
 
 pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
     futures::sink::With<
@@ -110,34 +110,19 @@ pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
     Result<B, std::io::Error>,
 >;
 
-fn message_to_json(message: &MessageType) -> String {
-    match message {
-        MessageType::HandlerPrePrepare(pre_prepare) => {
-            Message::new(
-                MessageType::PrePrepare,
-                pre_prepare.to_string(),
-            ).to_string()
+fn message_to_json(message: &Message) -> String {
+    let json = match message {
+        Message::PrePrepare(_) | Message::Prepare(_) => {
+            message.to_string()
         }
-        MessageType::HandlerPrepare(prepare) => {
-            Message::new(
-                MessageType::Prepare,
-                prepare.to_string(),
-            ).to_string()
-        }
-        MessageType::ClientRequest | MessageType::PrePrepare | MessageType::Prepare => unreachable!()
-    }
+        Message::ClientRequest(_) => unreachable!()
+    };
+    println!("[protocol_config::message_to_json] json: {:?}", json);
+    return json;
 }
 
-fn bytes_to_message(bytes: &BytesMut) -> MessageType {
-    let message = Message::from(&String::from_utf8(bytes.to_vec()).unwrap());
-    println!("[bytes_to_message] message: {:?}", message);
-    match message.r#type {
-        MessageType::PrePrepare => {
-            MessageType::HandlerPrePrepare(PrePrepare::from_payload(&message.payload))
-        }
-        MessageType::Prepare => {
-            MessageType::HandlerPrepare(Prepare::from_payload(&message.payload))
-        }
-        MessageType::ClientRequest | MessageType::HandlerPrePrepare(_) | MessageType::HandlerPrepare(_) => unreachable!()
-    }
+fn bytes_to_message(bytes: &BytesMut) -> Message {
+    let message = bytes.to_vec().into();
+    println!("[protocol_config::bytes_to_message] message: {:?}", message);
+    return message;
 }

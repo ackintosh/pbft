@@ -1,20 +1,22 @@
 use serde::{Serialize, Deserialize};
 use blake2::{Blake2b, Digest};
-use crate::config::Port;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Message {
-    pub r#type: MessageType,
-    pub payload: String,
+pub enum Message {
+    ClientRequest(ClientRequest),
+    PrePrepare(PrePrepare),
+    Prepare(Prepare),
 }
 
-impl Message {
-    pub fn new(r#type: MessageType, payload: String) -> Self {
-        Self {r#type, payload}
+impl From<Vec<u8>> for Message {
+    fn from(item: Vec<u8>) -> Self {
+        serde_json::from_str(&String::from_utf8(item).unwrap()).unwrap()
     }
+}
 
-    pub fn from(s: &String) -> Self {
-        serde_json::from_str(s).unwrap()
+impl From<String> for Message {
+    fn from(s: String) -> Self {
+        serde_json::from_str(&s).unwrap()
     }
 }
 
@@ -22,15 +24,6 @@ impl std::fmt::Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", serde_json::to_string(self).unwrap())
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum MessageType {
-    ClientRequest,
-    PrePrepare,
-    Prepare,
-    HandlerPrePrepare(PrePrepare),
-    HandlerPrepare(Prepare),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -41,18 +34,8 @@ pub struct ClientRequest {
 }
 
 impl ClientRequest {
-    pub fn from(s: &String) -> Self {
-        serde_json::from_str(s).unwrap()
-    }
-
     pub fn operation(&self) -> String {
         self.operation.clone()
-    }
-}
-
-impl From<Message> for ClientRequest {
-    fn from(m: Message) -> Self {
-        serde_json::from_str(&m.payload).unwrap()
     }
 }
 
@@ -86,10 +69,6 @@ impl PrePrepare {
         Self { view, n, digest, message }
     }
 
-    pub fn from_payload(payload: &String) -> Self {
-        serde_json::from_str(payload).unwrap()
-    }
-
     pub fn validate_digest(&self) -> Result<(), String> {
         if self.digest == digest(&self.message.as_bytes()) {
             Ok(())
@@ -102,12 +81,6 @@ impl PrePrepare {
 impl std::fmt::Display for PrePrepare {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", serde_json::to_string(self).unwrap())
-    }
-}
-
-impl From<Message> for PrePrepare {
-    fn from(m: Message) -> Self {
-        serde_json::from_str(&m.payload).unwrap()
     }
 }
 
@@ -136,7 +109,6 @@ pub struct Prepare {
     view: u64,
     n: u64,
     digest: String,
-    i: Port, // TODO: remove
 }
 
 impl Prepare {
@@ -145,12 +117,7 @@ impl Prepare {
             view: pre_prepare.view,
             n: pre_prepare.n,
             digest: pre_prepare.digest.clone(),
-            i: "8888".into(), // TODO: remove
         }
-    }
-
-    pub fn from_payload(payload: &String) -> Self {
-        serde_json::from_str(payload).unwrap()
     }
 
     pub fn view(&self) -> u64 {
@@ -159,10 +126,6 @@ impl Prepare {
 
     pub fn n(&self) -> u64 {
         self.n
-    }
-
-    pub fn i(&self) -> Port {
-        self.i.clone()
     }
 }
 
