@@ -6,7 +6,7 @@ use libp2p::{InboundUpgrade, OutboundUpgrade};
 use futures::future::FutureResult;
 use tokio::codec::Framed;
 use unsigned_varint::codec::UviBytes;
-use crate::message::MessageType;
+use crate::message::Message;
 use futures::{Stream, Sink};
 
 #[derive(Clone)]
@@ -95,9 +95,9 @@ where
     }
 }
 
-pub type PbftInStreamSink<S> = PbftStreamSink<S, Vec<u8>, MessageType>;
+pub type PbftInStreamSink<S> = PbftStreamSink<S, Vec<u8>, Message>;
 
-pub type PbftOutStreamSink<S> = PbftStreamSink<S, MessageType, Vec<u8>>;
+pub type PbftOutStreamSink<S> = PbftStreamSink<S, Message, Vec<u8>>;
 
 pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
     futures::sink::With<
@@ -110,18 +110,18 @@ pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
     Result<B, std::io::Error>,
 >;
 
-fn message_to_json(message: &MessageType) -> String {
+fn message_to_json(message: &Message) -> String {
     let json = match message {
-        MessageType::PrePrepare(_) | MessageType::Prepare(_) => {
+        Message::PrePrepare(_) | Message::Prepare(_) => {
             message.to_string()
         }
-        MessageType::ClientRequest(_) => unreachable!()
+        Message::ClientRequest(_) => unreachable!()
     };
     println!("[protocol_config::message_to_json] json: {:?}", json);
     return json;
 }
 
-fn bytes_to_message(bytes: &BytesMut) -> MessageType {
+fn bytes_to_message(bytes: &BytesMut) -> Message {
     let message = bytes.to_vec().into();
     println!("[protocol_config::bytes_to_message] message: {:?}", message);
     return message;

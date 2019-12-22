@@ -3,25 +3,25 @@ use blake2::{Blake2b, Digest};
 use crate::config::Port;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum MessageType {
+pub enum Message {
     ClientRequest(ClientRequest),
     PrePrepare(PrePrepare),
     Prepare(Prepare),
 }
 
-impl From<Vec<u8>> for MessageType {
+impl From<Vec<u8>> for Message {
     fn from(item: Vec<u8>) -> Self {
         serde_json::from_str(&String::from_utf8(item).unwrap()).unwrap()
     }
 }
 
-impl From<String> for MessageType {
+impl From<String> for Message {
     fn from(s: String) -> Self {
         serde_json::from_str(&s).unwrap()
     }
 }
 
-impl std::fmt::Display for MessageType {
+impl std::fmt::Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", serde_json::to_string(self).unwrap())
     }
