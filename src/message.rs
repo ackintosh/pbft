@@ -1,6 +1,5 @@
 use serde::{Serialize, Deserialize};
 use blake2::{Blake2b, Digest};
-use crate::config::Port;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
@@ -35,10 +34,6 @@ pub struct ClientRequest {
 }
 
 impl ClientRequest {
-    pub fn from(s: &String) -> Self {
-        serde_json::from_str(s).unwrap()
-    }
-
     pub fn operation(&self) -> String {
         self.operation.clone()
     }
