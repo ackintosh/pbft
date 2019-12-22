@@ -3,31 +3,28 @@ use blake2::{Blake2b, Digest};
 use crate::config::Port;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Message {
-    pub r#type: MessageType,
-}
-
-impl Message {
-    pub fn new(r#type: MessageType) -> Self {
-        Self {r#type}
-    }
-
-    pub fn from(s: &String) -> Self {
-        serde_json::from_str(s).unwrap()
-    }
-}
-
-impl std::fmt::Display for Message {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", serde_json::to_string(self).unwrap())
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub enum MessageType {
     ClientRequest(ClientRequest),
     PrePrepare(PrePrepare),
     Prepare(Prepare),
+}
+
+impl From<Vec<u8>> for MessageType {
+    fn from(item: Vec<u8>) -> Self {
+        serde_json::from_str(&String::from_utf8(item).unwrap()).unwrap()
+    }
+}
+
+impl From<String> for MessageType {
+    fn from(s: String) -> Self {
+        serde_json::from_str(&s).unwrap()
+    }
+}
+
+impl std::fmt::Display for MessageType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

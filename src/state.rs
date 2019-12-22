@@ -2,7 +2,6 @@ use std::sync::{RwLock, Arc};
 use std::collections::HashMap;
 use crate::view::View;
 use crate::message::{PrePrepare, Prepare};
-use crate::config::Port;
 use libp2p::PeerId;
 
 pub struct State {
