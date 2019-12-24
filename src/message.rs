@@ -30,7 +30,7 @@ impl std::fmt::Display for Message {
 pub struct ClientRequest {
     operation: String,
     timestamp: u64,
-    client: Option<String>,
+    client: Option<String>, // TODO: client address
 }
 
 impl ClientRequest {
@@ -44,7 +44,7 @@ pub struct PrePrepare {
     // view indicates the view in which the message is being sent
     view: u64,
     // sequence number for pre-prepare messages
-    n: u64,
+    sequence_number: u64,
     // client message's digest
     digest: String,
     // client message
@@ -56,8 +56,8 @@ impl PrePrepare {
         self.view
     }
 
-    pub fn n(&self) -> u64 {
-        self.n
+    pub fn sequence_number(&self) -> u64 {
+        self.sequence_number
     }
 
     pub fn digest(&self) -> &String {
@@ -66,7 +66,7 @@ impl PrePrepare {
 
     pub fn from(view: u64, n: u64, message: String) -> Self {
         let digest = digest(message.as_bytes());
-        Self { view, n, digest, message }
+        Self { view, sequence_number: n, digest, message }
     }
 
     pub fn validate_digest(&self) -> Result<(), String> {
@@ -107,7 +107,7 @@ impl PrePrepareSequence {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Prepare {
     view: u64,
-    n: u64,
+    sequence_number: u64,
     digest: String,
 }
 
@@ -115,7 +115,7 @@ impl Prepare {
     pub fn from(pre_prepare: &PrePrepare) -> Self {
         Self {
             view: pre_prepare.view,
-            n: pre_prepare.n,
+            sequence_number: pre_prepare.sequence_number,
             digest: pre_prepare.digest.clone(),
         }
     }
@@ -124,8 +124,8 @@ impl Prepare {
         self.view
     }
 
-    pub fn n(&self) -> u64 {
-        self.n
+    pub fn sequence_number(&self) -> u64 {
+        self.sequence_number
     }
 }
 

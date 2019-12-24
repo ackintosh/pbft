@@ -217,7 +217,7 @@ where
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] the communications has done successfully")
                 } else {
                     // TODO: retry?
-                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
+                    panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
                 }
             }
             PbftHandlerEvent::ProcessPrepareRequest { request, connection_id } => {
