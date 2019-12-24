@@ -41,7 +41,7 @@ impl State {
     }
 
     pub fn insert_prepare(&mut self, peer_id: PeerId, prepare: Prepare) {
-        println!("[State::insert_pre_prepare] The Prepare message has been stored into logs: {}", prepare);
+        println!("[State::insert_prepare] The Prepare message has been stored into logs: {}", prepare);
 
         let key = PrepareKey(prepare.view(), prepare.sequence_number());
         let p = self.prepares
@@ -52,5 +52,9 @@ impl State {
 
     pub fn get_pre_prepare(&self, pre_prepare: &PrePrepare) -> Option<&PrePrepare> {
         self.pre_prepares.get(&PrePrepareKey(pre_prepare.view(), pre_prepare.sequence_number()))
+    }
+
+    pub fn get_pre_prepare_by_key(&self, view: u64, sequence_number: u64) -> Option<&PrePrepare> {
+        self.pre_prepares.get(&PrePrepareKey(view, sequence_number))
     }
 }

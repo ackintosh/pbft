@@ -127,6 +127,10 @@ impl Prepare {
     pub fn sequence_number(&self) -> u64 {
         self.sequence_number
     }
+
+    pub fn digest(&self) -> &String {
+        &self.digest
+    }
 }
 
 impl std::fmt::Display for Prepare {

@@ -133,6 +133,18 @@ impl<TSubstream> Pbft<TSubstream> {
 
         Ok(())
     }
+
+    fn validate_prepare(&self, prepare: &Prepare) -> Result<(), String> {
+        // The replicas verify whether the prepares match the pre-prepare by checking that they have the
+        // same view, sequence number, and digest.
+        if let Some(pre_prepare) = self.state.get_pre_prepare_by_key(prepare.view(), prepare.sequence_number()) {
+            if pre_prepare.digest() == prepare.digest() {
+                return Ok(());
+            }
+            return Err(format!("the Prepare request doesn't match with the PrePrepare. prepare: {}, pre-prepare: {}", prepare, pre_prepare))
+        }
+        Err(format!("No PrePrepare that matches with the Prepare. prepare: {}", prepare))
+    }
 }
 
 #[derive(Debug)]
@@ -221,7 +233,8 @@ where
             }
             PbftHandlerEvent::ProcessPrepareRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessPrepareRequest] request: {:?}", request);
-                // TODO: process the message
+                self.validate_prepare(&request).unwrap();
+                self.state.insert_prepare(peer_id.clone(), request);
 
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
