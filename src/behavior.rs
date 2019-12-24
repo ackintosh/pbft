@@ -93,11 +93,10 @@ impl<TSubstream> Pbft<TSubstream> {
         self.state.insert_prepare(PeerId::from_public_key(self.keypair.public()), prepare.clone());
 
         if self.connected_peers.is_empty() {
-            panic!("[Pbft::process_pre_prepare] [PbftHandlerEvent::PrePrepareRequest] !!! Peers not found !!!");
+            panic!("[Pbft::process_pre_prepare] !!! Peers not found !!!");
         }
 
         for peer_id in self.connected_peers.iter() {
-            println!("[Pbft::process_pre_prepare] [PbftHandlerEvent::PrePrepareRequest] [add queued_events] peer_id: {:?}", peer_id);
             self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                 peer_id: peer_id.clone(),
                 event: PbftHandlerIn::PrepareRequest(prepare.clone())
