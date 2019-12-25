@@ -1,7 +1,7 @@
 use std::sync::{RwLock, Arc};
 use std::collections::HashMap;
 use crate::view::View;
-use crate::message::{PrePrepare, Prepare};
+use crate::message::{PrePrepare, Prepare, Commit};
 use libp2p::PeerId;
 
 pub struct State {
@@ -9,6 +9,7 @@ pub struct State {
     current_view: Arc<RwLock<View>>,
     pre_prepares: HashMap<PrePrepareKey, PrePrepare>,
     prepares: HashMap<PrepareKey, HashMap<PeerId, Prepare>>,
+    commits: HashMap<CommitKey, HashMap<PeerId, Commit>>,
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -17,6 +18,9 @@ struct PrePrepareKey(u64, u64); // (view, n)
 #[derive(PartialEq, Debug, Eq, Hash)]
 struct PrepareKey(u64, u64);// (view, n)
 
+#[derive(PartialEq, Eq, Hash)]
+struct CommitKey(u64); // view
+
 impl State {
     pub fn new() -> Self {
         Self {
@@ -24,6 +28,7 @@ impl State {
             current_view: Arc::new(RwLock::new(View::new())),
             pre_prepares: HashMap::new(),
             prepares: HashMap::new(),
+            commits: HashMap::new(),
         }
     }
 
@@ -48,6 +53,16 @@ impl State {
             .entry(key)
             .or_insert(HashMap::new());
         p.insert(peer_id, prepare);
+    }
+
+    pub fn insert_commit(&mut self, peer_id: PeerId, commit: Commit) {
+        println!("[State::insert_commit] The Commit message has been stored into logs: {}", commit);
+
+        let key = CommitKey(commit.view());
+        let c = self.commits
+            .entry(key)
+            .or_insert(HashMap::new());
+        c.insert(peer_id, commit);
     }
 
     pub fn prepare_len(&self) -> usize {

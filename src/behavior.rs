@@ -277,11 +277,12 @@ where
                 self.validate_commit(&request).unwrap();
 
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
-                    peer_id,
+                    peer_id: peer_id.clone(),
                     event: PbftHandlerIn::CommitResponse("OK".into(), connection_id)
                 });
 
-                // TODO: Replicas accept commit messages and insert them in their log
+                // Replicas accept commit messages and insert them in their log
+                self.state.insert_commit(peer_id, request);
             }
         }
     }
