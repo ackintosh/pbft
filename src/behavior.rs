@@ -152,6 +152,19 @@ impl<TSubstream> Pbft<TSubstream> {
         println!("[Pbft::prepared] len: {}", len);
         len >= 1 // TODO
     }
+
+    fn validate_commit(&self, commit: &Commit) -> Result<(), String> {
+        // TODO: properly signed
+
+        // the view number in the message is equal to the replica's current view
+        if commit.view() != self.state.current_view() {
+            return Err(format!("The view number in the message is NOT equal to the replica's current view. Commit.view: {}, current_view: {}", commit.view(), self.state.current_view()));
+        }
+
+        // TODO: the sequence number is between h and H
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -261,10 +274,14 @@ where
             PbftHandlerEvent::ProcessCommitRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] request: {:?}", request);
 
+                self.validate_commit(&request).unwrap();
+
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::CommitResponse("OK".into(), connection_id)
                 });
+
+                // TODO: Replicas accept commit messages and insert them in their log
             }
         }
     }

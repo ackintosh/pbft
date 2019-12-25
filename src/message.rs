@@ -152,6 +152,12 @@ pub struct Commit {
     digest: String,
 }
 
+impl Commit {
+    pub fn view(&self) -> u64 {
+        self.view
+    }
+}
+
 impl From<Prepare> for Commit {
     fn from(prepare: Prepare) -> Self {
         Self {
