@@ -35,22 +35,30 @@ impl State {
         println!("[State::insert_pre_prepare] The PrePrepare message has been stored into logs: {}", pre_prepare);
 
         self.pre_prepares.insert(
-            PrePrepareKey(pre_prepare.view(), pre_prepare.n()),
+            PrePrepareKey(pre_prepare.view(), pre_prepare.sequence_number()),
             pre_prepare
         );
     }
 
     pub fn insert_prepare(&mut self, peer_id: PeerId, prepare: Prepare) {
-        println!("[State::insert_pre_prepare] The Prepare message has been stored into logs: {}", prepare);
+        println!("[State::insert_prepare] The Prepare message has been stored into logs: {}", prepare);
 
-        let key = PrepareKey(prepare.view(), prepare.n());
+        let key = PrepareKey(prepare.view(), prepare.sequence_number());
         let p = self.prepares
             .entry(key)
             .or_insert(HashMap::new());
         p.insert(peer_id, prepare);
     }
 
+    pub fn prepare_len(&self) -> usize {
+        self.prepares.len()
+    }
+
     pub fn get_pre_prepare(&self, pre_prepare: &PrePrepare) -> Option<&PrePrepare> {
-        self.pre_prepares.get(&PrePrepareKey(pre_prepare.view(), pre_prepare.n()))
+        self.pre_prepares.get(&PrePrepareKey(pre_prepare.view(), pre_prepare.sequence_number()))
+    }
+
+    pub fn get_pre_prepare_by_key(&self, view: u64, sequence_number: u64) -> Option<&PrePrepare> {
+        self.pre_prepares.get(&PrePrepareKey(view, sequence_number))
     }
 }

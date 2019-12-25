@@ -112,7 +112,7 @@ pub type PbftStreamSink<S, A, B> = futures::stream::AndThen<
 
 fn message_to_json(message: &Message) -> String {
     let json = match message {
-        Message::PrePrepare(_) | Message::Prepare(_) => {
+        Message::PrePrepare(_) | Message::Prepare(_) | Message::Commit(_) => {
             message.to_string()
         }
         Message::ClientRequest(_) => unreachable!()

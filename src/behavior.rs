@@ -5,7 +5,7 @@ use std::error::Error;
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
 use libp2p::PeerId;
 use std::collections::{VecDeque, HashSet, HashMap};
-use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare};
+use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare, Commit};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
 use libp2p::identity::Keypair;
@@ -93,11 +93,10 @@ impl<TSubstream> Pbft<TSubstream> {
         self.state.insert_prepare(PeerId::from_public_key(self.keypair.public()), prepare.clone());
 
         if self.connected_peers.is_empty() {
-            panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] !!! Peers not found !!!");
+            panic!("[Pbft::process_pre_prepare] !!! Peers not found !!!");
         }
 
         for peer_id in self.connected_peers.iter() {
-            println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareRequest] [add queued_events] peer_id: {:?}", peer_id);
             self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                 peer_id: peer_id.clone(),
                 event: PbftHandlerIn::PrepareRequest(prepare.clone())
@@ -133,6 +132,25 @@ impl<TSubstream> Pbft<TSubstream> {
         // TODO: the sequence number in the pre-prepare message is between a low water mark, _h_, and a high water mark, _H_
 
         Ok(())
+    }
+
+    fn validate_prepare(&self, prepare: &Prepare) -> Result<(), String> {
+        // The replicas verify whether the prepares match the pre-prepare by checking that they have the
+        // same view, sequence number, and digest.
+        if let Some(pre_prepare) = self.state.get_pre_prepare_by_key(prepare.view(), prepare.sequence_number()) {
+            if pre_prepare.digest() == prepare.digest() {
+                return Ok(());
+            }
+            return Err(format!("the Prepare request doesn't match with the PrePrepare. prepare: {}, pre-prepare: {}", prepare, pre_prepare))
+        }
+        Err(format!("No PrePrepare that matches with the Prepare. prepare: {}", prepare))
+    }
+
+    fn prepared(&self) -> bool {
+        // 2f prepares from different backups that match the pre-prepare.
+        let len = self.state.prepare_len();
+        println!("[Pbft::prepared] len: {}", len);
+        len >= 1 // TODO
     }
 }
 
@@ -217,16 +235,34 @@ where
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] the communications has done successfully")
                 } else {
                     // TODO: retry?
-                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
+                    panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
                 }
             }
             PbftHandlerEvent::ProcessPrepareRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessPrepareRequest] request: {:?}", request);
-                // TODO: process the message
+                self.validate_prepare(&request).unwrap();
+                self.state.insert_prepare(peer_id.clone(), request);
 
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::PrepareResponse("OK".into(), connection_id)
+                });
+
+                if self.prepared() {
+                    for p in self.connected_peers.iter() {
+                        self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                            peer_id: p.clone(),
+                            event: PbftHandlerIn::CommitRequest(Commit {})
+                        })
+                    }
+                }
+            }
+            PbftHandlerEvent::ProcessCommitRequest { request, connection_id } => {
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] request: {:?}", request);
+
+                self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                    peer_id,
+                    event: PbftHandlerIn::CommitResponse("OK".into(), connection_id)
                 });
             }
         }
