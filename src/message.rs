@@ -145,9 +145,21 @@ fn digest(message: &[u8]) -> String {
     format!("{:x}", hash)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Commit {
+    view: u64,
+    sequence_number: u64,
+    digest: String,
+}
 
+impl From<Prepare> for Commit {
+    fn from(prepare: Prepare) -> Self {
+        Self {
+            view: prepare.view(),
+            sequence_number: prepare.sequence_number(),
+            digest: prepare.digest().clone(),
+        }
+    }
 }
 
 impl std::fmt::Display for Commit {

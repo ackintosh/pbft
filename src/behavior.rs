@@ -241,7 +241,7 @@ where
             PbftHandlerEvent::ProcessPrepareRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessPrepareRequest] request: {:?}", request);
                 self.validate_prepare(&request).unwrap();
-                self.state.insert_prepare(peer_id.clone(), request);
+                self.state.insert_prepare(peer_id.clone(), request.clone());
 
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
@@ -249,10 +249,11 @@ where
                 });
 
                 if self.prepared() {
+                    let commit: Commit = request.into();
                     for p in self.connected_peers.iter() {
                         self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                             peer_id: p.clone(),
-                            event: PbftHandlerIn::CommitRequest(Commit {})
+                            event: PbftHandlerIn::CommitRequest(commit.clone())
                         })
                     }
                 }
