@@ -50,6 +50,10 @@ impl State {
         p.insert(peer_id, prepare);
     }
 
+    pub fn prepare_len(&self) -> usize {
+        self.prepares.len()
+    }
+
     pub fn get_pre_prepare(&self, pre_prepare: &PrePrepare) -> Option<&PrePrepare> {
         self.pre_prepares.get(&PrePrepareKey(pre_prepare.view(), pre_prepare.sequence_number()))
     }

@@ -5,7 +5,7 @@ use std::error::Error;
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
 use libp2p::PeerId;
 use std::collections::{VecDeque, HashSet, HashMap};
-use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare};
+use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare, Commit};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
 use libp2p::identity::Keypair;
@@ -145,6 +145,13 @@ impl<TSubstream> Pbft<TSubstream> {
         }
         Err(format!("No PrePrepare that matches with the Prepare. prepare: {}", prepare))
     }
+
+    fn prepared(&self) -> bool {
+        // 2f prepares from different backups that match the pre-prepare.
+        let len = self.state.prepare_len();
+        println!("[Pbft::prepared] len: {}", len);
+        len >= 1 // TODO
+    }
 }
 
 #[derive(Debug)]
@@ -239,6 +246,23 @@ where
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::PrepareResponse("OK".into(), connection_id)
+                });
+
+                if self.prepared() {
+                    for p in self.connected_peers.iter() {
+                        self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                            peer_id: p.clone(),
+                            event: PbftHandlerIn::CommitRequest(Commit {})
+                        })
+                    }
+                }
+            }
+            PbftHandlerEvent::ProcessCommitRequest { request, connection_id } => {
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] request: {:?}", request);
+
+                self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
+                    peer_id,
+                    event: PbftHandlerIn::CommitResponse("OK".into(), connection_id)
                 });
             }
         }

@@ -6,6 +6,7 @@ pub enum Message {
     ClientRequest(ClientRequest),
     PrePrepare(PrePrepare),
     Prepare(Prepare),
+    Commit(Commit),
 }
 
 impl From<Vec<u8>> for Message {
@@ -142,4 +143,15 @@ impl std::fmt::Display for Prepare {
 fn digest(message: &[u8]) -> String {
     let hash = Blake2b::digest(message);
     format!("{:x}", hash)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Commit {
+
+}
+
+impl std::fmt::Display for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
 }

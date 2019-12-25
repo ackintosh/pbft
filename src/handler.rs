@@ -1,7 +1,7 @@
 use libp2p::core::Negotiated;
 use libp2p::swarm::protocols_handler::{KeepAlive, ProtocolsHandlerUpgrErr, ProtocolsHandlerEvent, SubstreamProtocol};
 use libp2p::swarm::ProtocolsHandler;
-use crate::message::{Message, PrePrepare, Prepare};
+use crate::message::{Message, PrePrepare, Prepare, Commit};
 use tokio::prelude::{AsyncRead, AsyncWrite, Async, AsyncSink};
 use crate::behavior::PbftFailure;
 use futures::Poll;
@@ -18,6 +18,8 @@ pub enum PbftHandlerIn {
     PrePrepareResponse(Vec<u8>, ConnectionId),
     PrepareRequest(Prepare),
     PrepareResponse(Vec<u8>, ConnectionId),
+    CommitRequest(Commit),
+    CommitResponse(Vec<u8>, ConnectionId),
 }
 
 pub struct PbftHandler<TSubstream>
@@ -86,7 +88,11 @@ pub enum PbftHandlerEvent {
     ProcessPrepareRequest {
         request: Prepare,
         connection_id: ConnectionId,
-    }
+    },
+    ProcessCommitRequest {
+        request: Commit,
+        connection_id: ConnectionId,
+    },
 }
 
 impl<TSubstream> PbftHandler<TSubstream>
@@ -192,6 +198,25 @@ where
                     self.substreams.push_back(SubstreamState::InPendingSend(substream, response));
                 } else {
                     panic!("[PbftHandler::inject_event] [PbftHandlerIn::PrepareResponse] substream state is not found, connection_id: {:?}", connection_id);
+                }
+            }
+            PbftHandlerIn::CommitRequest(request) => {
+                println!("[PbftHandler::inject_event] [PbftHandlerIn::CommitRequest] request: {:?}", request);
+                self.substreams.push_back(
+                    SubstreamState::OutPendingOpen(Message::Commit(request))
+                )
+            }
+            PbftHandlerIn::CommitResponse(response, connection_id) => {
+                println!("[PbftHandler::inject_event] [PbftHandlerIn::CommitResponse] response: {:?}, connection_id: {:?}", response, connection_id);
+
+                if let Some(pos) = self.find_waiting_substream_state_pos(&connection_id) {
+                    let (_connection_id, substream) = match self.substreams.remove(pos) {
+                        Some(SubstreamState::InWaitingToProcessMessage(connection_id, substream)) => (connection_id, substream),
+                        _ => unreachable!(),
+                    };
+                    self.substreams.push_back(SubstreamState::InPendingSend(substream, response));
+                } else {
+                    panic!("[PbftHandler::inject_event] [PbftHandlerIn::CommitResponse] substream state is not found, connection_id: {:?}", connection_id);
                 }
             }
         }
@@ -480,13 +505,15 @@ fn message_to_handler_event(
     message: Message,
     connection_id: ConnectionId,
 ) -> PbftHandlerEvent {
-    // TODO
     match message {
         Message::PrePrepare(pre_prepare) => {
             PbftHandlerEvent::ProcessPrePrepareRequest { request: pre_prepare, connection_id }
         }
         Message::Prepare(prepare) => {
             PbftHandlerEvent::ProcessPrepareRequest { request: prepare, connection_id }
+        }
+        Message::Commit(commit) => {
+            PbftHandlerEvent::ProcessCommitRequest { request: commit, connection_id }
         }
         Message::ClientRequest(_) => unreachable!()
     }
