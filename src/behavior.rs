@@ -146,10 +146,10 @@ impl<TSubstream> Pbft<TSubstream> {
         Err(format!("No PrePrepare that matches with the Prepare. prepare: {}", prepare))
     }
 
-    fn prepared(&self) -> bool {
+    fn prepared(&self, view: u64, sequence_number: u64) -> bool {
         // 2f prepares from different backups that match the pre-prepare.
-        let len = self.state.prepare_len();
-        println!("[Pbft::prepared] len: {}", len);
+        let len = self.state.prepare_len(view, sequence_number);
+        println!("[Pbft::prepared] prepare_len: {}", len);
         len >= 1 // TODO
     }
 
@@ -164,6 +164,27 @@ impl<TSubstream> Pbft<TSubstream> {
         // TODO: the sequence number is between h and H
 
         Ok(())
+    }
+
+    // `committed(m, v, n)` is true if and only if `prepared(m, v, n, i)` is true for all _i_ in
+    // some set of `f + 1` non-faulty replicas.
+    fn committed(&self, view: u64, sequence_number: u64) -> bool {
+        let len = self.state.commit_len(view);
+        let prepared = self.prepared(view, sequence_number);
+
+        println!("[Pbft::committed] commit_len: {}, prepared: {}", len, prepared);
+        prepared && len >= 1 // TODO: f + 1
+    }
+
+    // `committed-local(m, v, n, i)` is true if and only if `prepared(m, v, n, i)` is true and _i_
+    // has accepted `2f + 1` commits (possibly including its own) from different replicas that match
+    // the pre-prepare for _m_.
+    fn committed_local(&self, view: u64, sequence_number: u64) -> bool {
+        let len = self.state.commit_len(view);
+        let prepared = self.prepared(view, sequence_number);
+
+        println!("[Pbft::committed_local] commit_len: {}, prepared: {}", len, prepared);
+        prepared && len >= 1 // TODO: 2f + 1
     }
 }
 
@@ -261,7 +282,7 @@ where
                     event: PbftHandlerIn::PrepareResponse("OK".into(), connection_id)
                 });
 
-                if self.prepared() {
+                if self.prepared(request.view(), request.sequence_number()) {
                     let commit: Commit = request.into();
                     for p in self.connected_peers.iter() {
                         self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
@@ -283,6 +304,13 @@ where
 
                 // Replicas accept commit messages and insert them in their log
                 self.state.insert_commit(peer_id, request);
+
+                // Each replica _i_ executes the operation requested by _m_ after `committed-local(m, v, n, i)` is true
+                if self.committed_local(request.view(), request.sequence_number()) {
+                    let client_message_including_operation =
+                        self.state.get_pre_prepare_by_key(request.view(), request.sequence_number());
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] client_message: {:?}", client_message_including_operation);
+                }
             }
         }
     }

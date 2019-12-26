@@ -156,6 +156,10 @@ impl Commit {
     pub fn view(&self) -> u64 {
         self.view
     }
+
+    pub fn sequence_number(&self) -> u64 {
+        self.sequence_number
+    }
 }
 
 impl From<Prepare> for Commit {

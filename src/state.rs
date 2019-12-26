@@ -13,10 +13,10 @@ pub struct State {
 }
 
 #[derive(PartialEq, Eq, Hash)]
-struct PrePrepareKey(u64, u64); // (view, n)
+struct PrePrepareKey(u64, u64); // (view, sequence_number)
 
 #[derive(PartialEq, Debug, Eq, Hash)]
-struct PrepareKey(u64, u64);// (view, n)
+struct PrepareKey(u64, u64);// (view, sequence_number)
 
 #[derive(PartialEq, Eq, Hash)]
 struct CommitKey(u64); // view
@@ -65,8 +65,12 @@ impl State {
         c.insert(peer_id, commit);
     }
 
-    pub fn prepare_len(&self) -> usize {
-        self.prepares.len()
+    pub fn prepare_len(&self, view: u64, sequence_number: u64) -> usize {
+        self.prepares.get(&PrepareKey(view, sequence_number)).unwrap().len()
+    }
+
+    pub fn commit_len(&self, view: u64) -> usize {
+        self.commits.get(&CommitKey(view)).unwrap().len()
     }
 
     pub fn get_pre_prepare(&self, pre_prepare: &PrePrepare) -> Option<&PrePrepare> {
