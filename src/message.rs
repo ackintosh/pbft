@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use blake2::{Blake2b, Digest};
+use libp2p::PeerId;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
@@ -40,6 +41,14 @@ impl ClientRequest {
     }
 }
 
+pub struct ClientReply {
+    view: u64,
+    timestamp: u64,
+    // c?
+    peer_id: PeerId,
+    result: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PrePrepare {
     // view indicates the view in which the message is being sent
@@ -49,7 +58,7 @@ pub struct PrePrepare {
     // client message's digest
     digest: String,
     // client message
-    message: String,
+    message: ClientRequest,
 }
 
 impl PrePrepare {
@@ -65,16 +74,16 @@ impl PrePrepare {
         &self.digest
     }
 
-    pub fn from(view: u64, n: u64, message: String) -> Self {
-        let digest = digest(message.as_bytes());
-        Self { view, sequence_number: n, digest, message }
+    pub fn from(view: u64, n: u64, client_request: ClientRequest) -> Self {
+        let digest = digest(client_request.operation.as_bytes());
+        Self { view, sequence_number: n, digest, message: client_request }
     }
 
     pub fn validate_digest(&self) -> Result<(), String> {
-        if self.digest == digest(&self.message.as_bytes()) {
+        if self.digest == digest(&self.message.operation.as_bytes()) {
             Ok(())
         } else {
-            Err(format!("The digest is not matched with message. digest: {}, message: {}", self.digest, self.message))
+            Err(format!("The digest is not matched with message. digest: {}, message.operation: {}", self.digest, self.message.operation))
         }
     }
 }

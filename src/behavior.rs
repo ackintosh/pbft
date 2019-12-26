@@ -64,7 +64,7 @@ impl<TSubstream> Pbft<TSubstream> {
         let pre_prepare = PrePrepare::from(
             self.state.current_view(),
             self.pre_prepare_sequence.value(),
-            client_request.operation(),
+            client_request,
         );
 
         println!("[Pbft::add_client_request] [broadcasting the pre_prepare message] pre_prepare: {:?}", pre_prepare);
@@ -310,6 +310,8 @@ where
                     let client_message_including_operation =
                         self.state.get_pre_prepare_by_key(request.view(), request.sequence_number());
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] client_message: {:?}", client_message_including_operation);
+
+                    // After executing the requested operation, replicas send a reply to the client.
                 }
             }
         }
