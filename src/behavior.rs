@@ -303,7 +303,7 @@ where
                 });
 
                 // Replicas accept commit messages and insert them in their log
-                self.state.insert_commit(peer_id, request);
+                self.state.insert_commit(peer_id, request.clone());
 
                 // Each replica _i_ executes the operation requested by _m_ after `committed-local(m, v, n, i)` is true
                 if self.committed_local(request.view(), request.sequence_number()) {
