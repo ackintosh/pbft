@@ -5,7 +5,7 @@ use std::error::Error;
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
 use libp2p::PeerId;
 use std::collections::{VecDeque, HashSet, HashMap};
-use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare, Commit};
+use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare, Commit, ClientReply};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
 use libp2p::identity::Keypair;
@@ -308,10 +308,16 @@ where
                 // Each replica _i_ executes the operation requested by _m_ after `committed-local(m, v, n, i)` is true
                 if self.committed_local(request.view(), request.sequence_number()) {
                     let client_message_including_operation =
-                        self.state.get_pre_prepare_by_key(request.view(), request.sequence_number());
+                        self.state.get_pre_prepare_by_key(request.view(), request.sequence_number()).unwrap();
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] client_message: {:?}", client_message_including_operation);
 
                     // After executing the requested operation, replicas send a reply to the client.
+                    let reply = ClientReply::new(
+                        PeerId::from_public_key(self.keypair.public()),
+                        client_message_including_operation,
+                        &request
+                    );
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] reply: {:?}", reply);
                 }
             }
         }

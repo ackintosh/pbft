@@ -39,14 +39,30 @@ impl ClientRequest {
     pub fn operation(&self) -> String {
         self.operation.clone()
     }
+
+    pub fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
 }
 
+#[derive(Debug)]
 pub struct ClientReply {
     view: u64,
     timestamp: u64,
     // c?
     peer_id: PeerId,
     result: String,
+}
+
+impl ClientReply {
+    pub fn new(peer_id: PeerId, pre_prepare: &PrePrepare, commit: &Commit) -> Self {
+        Self {
+            view: commit.view(),
+            timestamp: pre_prepare.client_reqeust().timestamp(),
+            peer_id,
+            result: "awesome!".to_owned(), // TODO
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -72,6 +88,10 @@ impl PrePrepare {
 
     pub fn digest(&self) -> &String {
         &self.digest
+    }
+
+    pub fn client_reqeust(&self) -> &ClientRequest {
+        &self.message
     }
 
     pub fn from(view: u64, n: u64, client_request: ClientRequest) -> Self {
