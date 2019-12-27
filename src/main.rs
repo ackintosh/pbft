@@ -31,12 +31,14 @@ fn main() {
     println!("[main] node_type: {:?}", node_type);
 
     let client_requests = Arc::new(RwLock::new(VecDeque::new()));
-
-    if node_type == NodeType::Primary {
-        let _ = run_client_request_handler(
+    let mut client_request_handler: Option<ClientRequestHandler> = if node_type == NodeType::Primary {
+        Some(ClientRequestHandler::new(
+            "8000".into(),
             client_requests.clone(),
-        );
-    }
+        ))
+    } else {
+        None
+    };
 
     let local_key = Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
@@ -58,6 +60,10 @@ fn main() {
         loop {
             if let Some(client_request) = client_requests.write().unwrap().pop_front() {
                 swarm.pbft.add_client_request(client_request);
+            }
+
+            if client_request_handler.is_some() {
+                client_request_handler.as_mut().unwrap().tick();
             }
 
             match swarm.poll().expect("Error while polling swarm") {
@@ -92,18 +98,4 @@ fn determine_node_type(args: &Vec<String>) -> Result<NodeType, ()> {
         },
         _ => Err(()),
     }
-}
-
-fn run_client_request_handler(
-    client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
-) -> JoinHandle<()> {
-    let port: Port = "8000".into();
-    println!("{:?}", port);
-
-    std::thread::spawn(move || {
-        ClientRequestHandler::new(
-            port,
-            client_requests,
-        ).listen();
-    })
 }
