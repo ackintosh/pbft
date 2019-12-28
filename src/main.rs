@@ -1,5 +1,4 @@
-use crate::config::Port;
-use crate::client_request_handler::ClientRequestHandler;
+use crate::client_handler::ClientHandler;
 use std::sync::{Arc, RwLock};
 use crate::node_type::NodeType;
 use libp2p::{PeerId, build_development_transport, Swarm};
@@ -9,13 +8,10 @@ use futures::Async;
 use futures::stream::Stream;
 use std::collections::VecDeque;
 use crate::behavior::Pbft;
-use crate::message::ClientRequest;
-use std::thread::JoinHandle;
 
-mod config;
 mod network_behaviour_composer;
 mod handler;
-mod client_request_handler;
+mod client_handler;
 mod behavior;
 mod protocol_config;
 mod state;
@@ -31,12 +27,13 @@ fn main() {
     println!("[main] node_type: {:?}", node_type);
 
     let client_requests = Arc::new(RwLock::new(VecDeque::new()));
+    let client_replies = Arc::new(RwLock::new(VecDeque::new()));
 
-    if node_type == NodeType::Primary {
-        let _ = run_client_request_handler(
-            client_requests.clone(),
-        );
-    }
+    let mut client_request_handler = ClientHandler::new(
+        node_type,
+        client_requests.clone(),
+        client_replies.clone(),
+    );
 
     let local_key = Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
@@ -46,7 +43,7 @@ fn main() {
         transport,
         NetworkBehaviourComposer::new(
             libp2p::mdns::Mdns::new().expect("Failed to create mDNS service"),
-            Pbft::new(local_key),
+            Pbft::new(local_key, client_replies.clone()),
         ),
         local_peer_id
     );
@@ -59,6 +56,8 @@ fn main() {
             if let Some(client_request) = client_requests.write().unwrap().pop_front() {
                 swarm.pbft.add_client_request(client_request);
             }
+
+            client_request_handler.tick();
 
             match swarm.poll().expect("Error while polling swarm") {
                 Async::Ready(Some(_)) => {}
@@ -92,18 +91,4 @@ fn determine_node_type(args: &Vec<String>) -> Result<NodeType, ()> {
         },
         _ => Err(()),
     }
-}
-
-fn run_client_request_handler(
-    client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
-) -> JoinHandle<()> {
-    let port: Port = "8000".into();
-    println!("{:?}", port);
-
-    std::thread::spawn(move || {
-        ClientRequestHandler::new(
-            port,
-            client_requests,
-        ).listen();
-    })
 }

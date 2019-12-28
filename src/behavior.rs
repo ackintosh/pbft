@@ -5,10 +5,11 @@ use std::error::Error;
 use tokio::prelude::{AsyncRead, AsyncWrite, Async};
 use libp2p::PeerId;
 use std::collections::{VecDeque, HashSet, HashMap};
-use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare, Commit};
+use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare, Commit, ClientReply};
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
 use libp2p::identity::Keypair;
+use std::sync::{Arc, RwLock};
 
 pub struct Pbft<TSubstream> {
     keypair: Keypair,
@@ -17,11 +18,15 @@ pub struct Pbft<TSubstream> {
     queued_events: VecDeque<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>>,
     state: State,
     pre_prepare_sequence: PrePrepareSequence,
+    client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
     _marker: std::marker::PhantomData<TSubstream>,
 }
 
 impl<TSubstream> Pbft<TSubstream> {
-    pub fn new(keypair: Keypair) -> Self {
+    pub fn new(
+        keypair: Keypair,
+        client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
+    ) -> Self {
         Self {
             keypair,
             addresses: HashMap::new(),
@@ -29,6 +34,7 @@ impl<TSubstream> Pbft<TSubstream> {
             queued_events: VecDeque::with_capacity(100), // FIXME
             state: State::new(),
             pre_prepare_sequence: PrePrepareSequence::new(),
+            client_replies,
             _marker: std::marker::PhantomData,
         }
     }
@@ -64,7 +70,7 @@ impl<TSubstream> Pbft<TSubstream> {
         let pre_prepare = PrePrepare::from(
             self.state.current_view(),
             self.pre_prepare_sequence.value(),
-            client_request.operation(),
+            client_request,
         );
 
         println!("[Pbft::add_client_request] [broadcasting the pre_prepare message] pre_prepare: {:?}", pre_prepare);
@@ -146,11 +152,45 @@ impl<TSubstream> Pbft<TSubstream> {
         Err(format!("No PrePrepare that matches with the Prepare. prepare: {}", prepare))
     }
 
-    fn prepared(&self) -> bool {
+    fn prepared(&self, view: u64, sequence_number: u64) -> bool {
         // 2f prepares from different backups that match the pre-prepare.
-        let len = self.state.prepare_len();
-        println!("[Pbft::prepared] len: {}", len);
+        let len = self.state.prepare_len(view, sequence_number);
+        println!("[Pbft::prepared] prepare_len: {}", len);
         len >= 1 // TODO
+    }
+
+    fn validate_commit(&self, commit: &Commit) -> Result<(), String> {
+        // TODO: properly signed
+
+        // the view number in the message is equal to the replica's current view
+        if commit.view() != self.state.current_view() {
+            return Err(format!("The view number in the message is NOT equal to the replica's current view. Commit.view: {}, current_view: {}", commit.view(), self.state.current_view()));
+        }
+
+        // TODO: the sequence number is between h and H
+
+        Ok(())
+    }
+
+    // `committed(m, v, n)` is true if and only if `prepared(m, v, n, i)` is true for all _i_ in
+    // some set of `f + 1` non-faulty replicas.
+    fn committed(&self, view: u64, sequence_number: u64) -> bool {
+        let len = self.state.commit_len(view);
+        let prepared = self.prepared(view, sequence_number);
+
+        println!("[Pbft::committed] commit_len: {}, prepared: {}", len, prepared);
+        prepared && len >= 1 // TODO: f + 1
+    }
+
+    // `committed-local(m, v, n, i)` is true if and only if `prepared(m, v, n, i)` is true and _i_
+    // has accepted `2f + 1` commits (possibly including its own) from different replicas that match
+    // the pre-prepare for _m_.
+    fn committed_local(&self, view: u64, sequence_number: u64) -> bool {
+        let len = self.state.commit_len(view);
+        let prepared = self.prepared(view, sequence_number);
+
+        println!("[Pbft::committed_local] commit_len: {}, prepared: {}", len, prepared);
+        prepared && len >= 1 // TODO: 2f + 1
     }
 }
 
@@ -241,18 +281,19 @@ where
             PbftHandlerEvent::ProcessPrepareRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessPrepareRequest] request: {:?}", request);
                 self.validate_prepare(&request).unwrap();
-                self.state.insert_prepare(peer_id.clone(), request);
+                self.state.insert_prepare(peer_id.clone(), request.clone());
 
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                     peer_id,
                     event: PbftHandlerIn::PrepareResponse("OK".into(), connection_id)
                 });
 
-                if self.prepared() {
+                if self.prepared(request.view(), request.sequence_number()) {
+                    let commit: Commit = request.into();
                     for p in self.connected_peers.iter() {
                         self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
                             peer_id: p.clone(),
-                            event: PbftHandlerIn::CommitRequest(Commit {})
+                            event: PbftHandlerIn::CommitRequest(commit.clone())
                         })
                     }
                 }
@@ -260,10 +301,41 @@ where
             PbftHandlerEvent::ProcessCommitRequest { request, connection_id } => {
                 println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] request: {:?}", request);
 
+                self.validate_commit(&request).unwrap();
+
                 self.queued_events.push_back(NetworkBehaviourAction::SendEvent {
-                    peer_id,
+                    peer_id: peer_id.clone(),
                     event: PbftHandlerIn::CommitResponse("OK".into(), connection_id)
                 });
+
+                // Replicas accept commit messages and insert them in their log
+                self.state.insert_commit(peer_id, request.clone());
+
+                // Each replica _i_ executes the operation requested by _m_ after `committed-local(m, v, n, i)` is true
+                if self.committed_local(request.view(), request.sequence_number()) {
+                    let client_message_including_operation =
+                        self.state.get_pre_prepare_by_key(request.view(), request.sequence_number()).unwrap();
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] client_message: {:?}", client_message_including_operation);
+
+                    // Discard requests whose timestamp is lower than the timestamp in the last reply this node sent to the client to guarantee exactly-once semantics.
+                    if client_message_including_operation.client_reqeust().timestamp() <= self.state.last_timestamp() {
+                        eprintln!(
+                            "[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] the request was discarded as its timestamp is lower than the last timestamp. last_timestamp: {:?}",
+                            self.state.last_timestamp()
+                        );
+                        return;
+                    }
+
+                    // After executing the requested operation, replicas send a reply to the client.
+                    let reply = ClientReply::new(
+                        PeerId::from_public_key(self.keypair.public()),
+                        client_message_including_operation,
+                        &request
+                    );
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] reply: {:?}", reply);
+                    self.state.update_last_timestamp(reply.timestamp());
+                    self.client_replies.write().unwrap().push_back(reply);
+                }
             }
         }
     }

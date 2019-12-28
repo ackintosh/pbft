@@ -1,5 +1,8 @@
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Serializer};
+use serde::ser::SerializeStruct;
 use blake2::{Blake2b, Digest};
+use libp2p::PeerId;
+use std::net::SocketAddr;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
@@ -31,12 +34,71 @@ impl std::fmt::Display for Message {
 pub struct ClientRequest {
     operation: String,
     timestamp: u64,
-    client: Option<String>, // TODO: client address
+    client: SocketAddr,
 }
 
 impl ClientRequest {
     pub fn operation(&self) -> String {
         self.operation.clone()
+    }
+
+    pub fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+
+    pub fn client(&self) -> SocketAddr {
+        self.client.clone()
+    }
+}
+
+#[derive(Debug)]
+pub struct ClientReply {
+    view: u64,
+    timestamp: u64,
+    client: SocketAddr, // Is this correct as `c`?
+    peer_id: PeerId,
+    result: String,
+}
+
+impl ClientReply {
+    pub fn new(peer_id: PeerId, pre_prepare: &PrePrepare, commit: &Commit) -> Self {
+        Self {
+            view: commit.view(),
+            timestamp: pre_prepare.client_reqeust().timestamp(),
+            client: pre_prepare.client_reqeust().client(),
+            peer_id,
+            result: "awesome!".to_owned(), // TODO
+        }
+    }
+}
+
+impl ClientReply {
+    pub fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+
+    pub fn client_address(&self) -> SocketAddr {
+        self.client.clone()
+    }
+}
+
+impl Serialize for ClientReply {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("ClientReply", 4)?;
+        state.serialize_field("view", &self.view)?;
+        state.serialize_field("timestamp", &self.timestamp)?;
+        state.serialize_field("peer_id", &self.peer_id.to_string())?;
+        state.serialize_field("result", &self.result)?;
+        state.end()
+    }
+}
+
+impl std::fmt::Display for ClientReply {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
     }
 }
 
@@ -49,7 +111,7 @@ pub struct PrePrepare {
     // client message's digest
     digest: String,
     // client message
-    message: String,
+    message: ClientRequest,
 }
 
 impl PrePrepare {
@@ -65,16 +127,20 @@ impl PrePrepare {
         &self.digest
     }
 
-    pub fn from(view: u64, n: u64, message: String) -> Self {
-        let digest = digest(message.as_bytes());
-        Self { view, sequence_number: n, digest, message }
+    pub fn client_reqeust(&self) -> &ClientRequest {
+        &self.message
+    }
+
+    pub fn from(view: u64, n: u64, client_request: ClientRequest) -> Self {
+        let digest = digest(client_request.operation.as_bytes());
+        Self { view, sequence_number: n, digest, message: client_request }
     }
 
     pub fn validate_digest(&self) -> Result<(), String> {
-        if self.digest == digest(&self.message.as_bytes()) {
+        if self.digest == digest(&self.message.operation.as_bytes()) {
             Ok(())
         } else {
-            Err(format!("The digest is not matched with message. digest: {}, message: {}", self.digest, self.message))
+            Err(format!("The digest is not matched with message. digest: {}, message.operation: {}", self.digest, self.message.operation))
         }
     }
 }
@@ -145,9 +211,31 @@ fn digest(message: &[u8]) -> String {
     format!("{:x}", hash)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Commit {
+    view: u64,
+    sequence_number: u64,
+    digest: String,
+}
 
+impl Commit {
+    pub fn view(&self) -> u64 {
+        self.view
+    }
+
+    pub fn sequence_number(&self) -> u64 {
+        self.sequence_number
+    }
+}
+
+impl From<Prepare> for Commit {
+    fn from(prepare: Prepare) -> Self {
+        Self {
+            view: prepare.view(),
+            sequence_number: prepare.sequence_number(),
+            digest: prepare.digest().clone(),
+        }
+    }
 }
 
 impl std::fmt::Display for Commit {
