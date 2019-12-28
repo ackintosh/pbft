@@ -1,5 +1,5 @@
 use crate::config::Port;
-use crate::client_request_handler::ClientRequestHandler;
+use crate::client_handler::ClientHandler;
 use std::sync::{Arc, RwLock};
 use crate::node_type::NodeType;
 use libp2p::{PeerId, build_development_transport, Swarm};
@@ -15,7 +15,7 @@ use std::thread::JoinHandle;
 mod config;
 mod network_behaviour_composer;
 mod handler;
-mod client_request_handler;
+mod client_handler;
 mod behavior;
 mod protocol_config;
 mod state;
@@ -33,7 +33,7 @@ fn main() {
     let client_requests = Arc::new(RwLock::new(VecDeque::new()));
     let client_replies = Arc::new(RwLock::new(VecDeque::new()));
 
-    let mut client_request_handler = ClientRequestHandler::new(
+    let mut client_request_handler = ClientHandler::new(
         node_type,
         client_requests.clone(),
         client_replies.clone(),

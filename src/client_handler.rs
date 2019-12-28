@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 use crate::node_type::NodeType;
 
-pub struct ClientRequestHandler {
+pub struct ClientHandler {
     node_type: NodeType,
     listener: TcpListener,
     client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
@@ -15,7 +15,7 @@ pub struct ClientRequestHandler {
     stream_states: VecDeque<ClientStreamState>,
 }
 
-impl ClientRequestHandler {
+impl ClientHandler {
     pub fn new(
         node_type: NodeType,
         client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
