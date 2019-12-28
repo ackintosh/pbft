@@ -5,8 +5,10 @@ use std::io::{Read, Write};
 use crate::message::{ClientRequest, Message, ClientReply};
 use std::collections::VecDeque;
 use std::time::Duration;
+use crate::node_type::NodeType;
 
 pub struct ClientRequestHandler {
+    node_type: NodeType,
     listener: TcpListener,
     client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
     client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
@@ -15,14 +17,22 @@ pub struct ClientRequestHandler {
 
 impl ClientRequestHandler {
     pub fn new(
+        node_type: NodeType,
         client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
         client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
     ) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = if node_type == NodeType::Primary {
+            // Make the port number of primary node fixed in order to easily debug
+            "127.0.0.1:8000"
+        } else {
+            "127.0.0.1:0"
+        };
+        let listener = TcpListener::bind(address).unwrap();
         listener.set_nonblocking(true).expect("Cannot set non-blocking");
         println!("[ClientRequestHandler::new] Listening on {:?}", listener.local_addr().unwrap());
 
         Self {
+            node_type,
             listener,
             client_requests,
             client_replies,

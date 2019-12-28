@@ -34,6 +34,7 @@ fn main() {
     let client_replies = Arc::new(RwLock::new(VecDeque::new()));
 
     let mut client_request_handler = ClientRequestHandler::new(
+        node_type,
         client_requests.clone(),
         client_replies.clone(),
     );
