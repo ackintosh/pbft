@@ -64,7 +64,11 @@ impl ClientHandler {
                     println!("[ClientRequestHandler::tick] [ClientStreamState::ReceivedClientMessage] message: {:?}", message);
                     match message {
                         Message::ClientRequest(client_request) => {
-                            // TODO: transfer the message to primary replica if this node is running as backup
+                            if self.node_type == NodeType::Backup {
+                                // TODO: transfer the message to primary replica if this node is running as backup
+                                eprintln!("Can't process the client request as running as backup. client_request: {:?}", client_request);
+                                return;
+                            }
                             self.client_requests.write().unwrap().push_back(client_request);
                         }
                         _ => unreachable!()
