@@ -9,6 +9,7 @@ use crate::message::{ClientRequest, PrePrepareSequence, PrePrepare, Prepare, Com
 use crate::handler::{PbftHandlerIn, PbftHandler, PbftHandlerEvent};
 use crate::state::State;
 use libp2p::identity::Keypair;
+use std::sync::{Arc, RwLock};
 
 pub struct Pbft<TSubstream> {
     keypair: Keypair,
@@ -17,11 +18,15 @@ pub struct Pbft<TSubstream> {
     queued_events: VecDeque<NetworkBehaviourAction<PbftHandlerIn, PbftEvent>>,
     state: State,
     pre_prepare_sequence: PrePrepareSequence,
+    client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
     _marker: std::marker::PhantomData<TSubstream>,
 }
 
 impl<TSubstream> Pbft<TSubstream> {
-    pub fn new(keypair: Keypair) -> Self {
+    pub fn new(
+        keypair: Keypair,
+        client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
+    ) -> Self {
         Self {
             keypair,
             addresses: HashMap::new(),
@@ -29,6 +34,7 @@ impl<TSubstream> Pbft<TSubstream> {
             queued_events: VecDeque::with_capacity(100), // FIXME
             state: State::new(),
             pre_prepare_sequence: PrePrepareSequence::new(),
+            client_replies,
             _marker: std::marker::PhantomData,
         }
     }
@@ -318,6 +324,7 @@ where
                         &request
                     );
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] reply: {:?}", reply);
+                    self.client_replies.write().unwrap().push_back(reply);
                 }
             }
         }

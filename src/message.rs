@@ -1,4 +1,5 @@
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Serializer};
+use serde::ser::SerializeStruct;
 use blake2::{Blake2b, Digest};
 use libp2p::PeerId;
 
@@ -62,6 +63,26 @@ impl ClientReply {
             peer_id,
             result: "awesome!".to_owned(), // TODO
         }
+    }
+}
+
+impl Serialize for ClientReply {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("ClientReply", 4)?;
+        state.serialize_field("view", &self.view)?;
+        state.serialize_field("timestamp", &self.timestamp)?;
+        state.serialize_field("peer_id", &self.peer_id.to_string())?;
+        state.serialize_field("result", &self.result)?;
+        state.end()
+    }
+}
+
+impl std::fmt::Display for ClientReply {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
     }
 }
 

@@ -31,10 +31,13 @@ fn main() {
     println!("[main] node_type: {:?}", node_type);
 
     let client_requests = Arc::new(RwLock::new(VecDeque::new()));
+    let client_replies = Arc::new(RwLock::new(VecDeque::new()));
+
     let mut client_request_handler: Option<ClientRequestHandler> = if node_type == NodeType::Primary {
         Some(ClientRequestHandler::new(
             "8000".into(),
             client_requests.clone(),
+            client_replies.clone(),
         ))
     } else {
         None
@@ -48,7 +51,7 @@ fn main() {
         transport,
         NetworkBehaviourComposer::new(
             libp2p::mdns::Mdns::new().expect("Failed to create mDNS service"),
-            Pbft::new(local_key),
+            Pbft::new(local_key, client_replies.clone()),
         ),
         local_peer_id
     );
