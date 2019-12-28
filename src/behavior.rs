@@ -174,6 +174,7 @@ impl<TSubstream> Pbft<TSubstream> {
 
     // `committed(m, v, n)` is true if and only if `prepared(m, v, n, i)` is true for all _i_ in
     // some set of `f + 1` non-faulty replicas.
+    #[allow(dead_code)]
     fn committed(&self, view: u64, sequence_number: u64) -> bool {
         let len = self.state.commit_len(view);
         let prepared = self.prepared(view, sequence_number);
@@ -313,12 +314,12 @@ where
 
                 // Each replica _i_ executes the operation requested by _m_ after `committed-local(m, v, n, i)` is true
                 if self.committed_local(request.view(), request.sequence_number()) {
-                    let client_message_including_operation =
-                        self.state.get_pre_prepare_by_key(request.view(), request.sequence_number()).unwrap();
-                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] client_message: {:?}", client_message_including_operation);
+                    let client_request =
+                        self.state.get_pre_prepare_by_key(request.view(), request.sequence_number()).unwrap().client_reqeust();
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] client_message: {:?}", client_request);
 
                     // Discard requests whose timestamp is lower than the timestamp in the last reply this node sent to the client to guarantee exactly-once semantics.
-                    if client_message_including_operation.client_reqeust().timestamp() <= self.state.last_timestamp() {
+                    if client_request.timestamp() <= self.state.last_timestamp() {
                         eprintln!(
                             "[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] the request was discarded as its timestamp is lower than the last timestamp. last_timestamp: {:?}",
                             self.state.last_timestamp()
@@ -326,10 +327,12 @@ where
                         return;
                     }
 
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] the operation has been executed: {:?}", client_request.operation());
+
                     // After executing the requested operation, replicas send a reply to the client.
                     let reply = ClientReply::new(
                         PeerId::from_public_key(self.keypair.public()),
-                        client_message_including_operation,
+                        client_request,
                         &request
                     );
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] reply: {:?}", reply);

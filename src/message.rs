@@ -61,11 +61,11 @@ pub struct ClientReply {
 }
 
 impl ClientReply {
-    pub fn new(peer_id: PeerId, pre_prepare: &PrePrepare, commit: &Commit) -> Self {
+    pub fn new(peer_id: PeerId, client_request: &ClientRequest, commit: &Commit) -> Self {
         Self {
             view: commit.view(),
-            timestamp: pre_prepare.client_reqeust().timestamp(),
-            client: pre_prepare.client_reqeust().client(),
+            timestamp: client_request.timestamp(),
+            client: client_request.client(),
             peer_id,
             result: "awesome!".to_owned(), // TODO
         }
