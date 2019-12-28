@@ -268,15 +268,14 @@ where
                     event: PbftHandlerIn::PrePrepareResponse("OK".into(), connection_id),
                 });
             }
-            PbftHandlerEvent::PrePrepareResponse { response } => {
-                // TODO: handle the response
+            PbftHandlerEvent::Response { response } => {
                 let response_message = String::from_utf8(response).expect("Failed to parse response");
-                println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
+                println!("[Pbft::inject_node_event] [PbftHandlerEvent::Response] response_message: {:?}", response_message);
                 if response_message == "OK" {
-                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] the communications has done successfully")
+                    println!("[Pbft::inject_node_event] [PbftHandlerEvent::Response] the communications has done successfully")
                 } else {
                     // TODO: retry?
-                    panic!("[Pbft::inject_node_event] [PbftHandlerEvent::PrePrepareResponse] response_message: {:?}", response_message);
+                    eprintln!("[Pbft::inject_node_event] [PbftHandlerEvent::Response] response_message: {:?}", response_message);
                 }
             }
             PbftHandlerEvent::ProcessPrepareRequest { request, connection_id } => {

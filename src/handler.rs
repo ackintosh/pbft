@@ -82,7 +82,7 @@ pub enum PbftHandlerEvent {
         request: PrePrepare,
         connection_id: ConnectionId,
     },
-    PrePrepareResponse {
+    Response {
         response: Vec<u8>,
     },
     ProcessPrepareRequest {
@@ -356,7 +356,7 @@ where
                     println!("[PbftHandler::handle_substream()] [SubstreamState::OutWaitingAnswer] [Ready::Some] response: {:?}", response);
                     (
                         Some(SubstreamState::OutClosing(substream)),
-                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::PrePrepareResponse { response })), // TODO
+                        Some(ProtocolsHandlerEvent::Custom(PbftHandlerEvent::Response { response })),
                         true,
                     )
                 }
