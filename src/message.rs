@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize, Serializer};
 use serde::ser::SerializeStruct;
 use blake2::{Blake2b, Digest};
 use libp2p::PeerId;
+use std::net::SocketAddr;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
@@ -33,7 +34,7 @@ impl std::fmt::Display for Message {
 pub struct ClientRequest {
     operation: String,
     timestamp: u64,
-    client: Option<String>, // TODO: client address
+    client: SocketAddr,
 }
 
 impl ClientRequest {
@@ -44,13 +45,17 @@ impl ClientRequest {
     pub fn timestamp(&self) -> u64 {
         self.timestamp
     }
+
+    pub fn client(&self) -> SocketAddr {
+        self.client.clone()
+    }
 }
 
 #[derive(Debug)]
 pub struct ClientReply {
     view: u64,
     timestamp: u64,
-    // c?
+    client: SocketAddr, // Is this correct as `c`?
     peer_id: PeerId,
     result: String,
 }
@@ -60,9 +65,16 @@ impl ClientReply {
         Self {
             view: commit.view(),
             timestamp: pre_prepare.client_reqeust().timestamp(),
+            client: pre_prepare.client_reqeust().client(),
             peer_id,
             result: "awesome!".to_owned(), // TODO
         }
+    }
+}
+
+impl ClientReply {
+    pub fn client_address(&self) -> SocketAddr {
+        self.client.clone()
     }
 }
 

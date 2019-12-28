@@ -74,7 +74,7 @@ impl ClientHandler {
                 }
                 ClientStreamState::PrepareToSendReply(reply) => {
                     println!("[ClientHandler::tick] [ClientStreamState::PrepareToSendReply] reply: {:?}", reply);
-                    let mut stream = TcpStream::connect("127.0.0.1:9000").unwrap(); // TODO
+                    let mut stream = TcpStream::connect(reply.client_address()).unwrap();
                     stream.set_nonblocking(true).expect("Cannot set non-blocking");
 
                     match stream.write(reply.to_string().as_bytes()) {
