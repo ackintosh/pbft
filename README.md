@@ -1,6 +1,6 @@
 # PBFT
 
-A PBFT implementation based on [rust-libp2p](https://github.com/libp2p/rust-libp2p).
+An implementation of the PBFT consensus algorithm using [rust-libp2p](https://github.com/libp2p/rust-libp2p) as the networking layer.
 
 ```bash
 ####################################
