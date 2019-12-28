@@ -9,6 +9,8 @@ pub struct State {
     pre_prepares: HashMap<PrePrepareKey, PrePrepare>,
     prepares: HashMap<PrepareKey, HashMap<PeerId, Prepare>>,
     commits: HashMap<CommitKey, HashMap<PeerId, Commit>>,
+    // The timestamp in the last reply this node sent to the client
+    last_timestamp: u64,
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -27,6 +29,7 @@ impl State {
             pre_prepares: HashMap::new(),
             prepares: HashMap::new(),
             commits: HashMap::new(),
+            last_timestamp: 0,
         }
     }
 
@@ -77,5 +80,14 @@ impl State {
 
     pub fn get_pre_prepare_by_key(&self, view: u64, sequence_number: u64) -> Option<&PrePrepare> {
         self.pre_prepares.get(&PrePrepareKey(view, sequence_number))
+    }
+
+    pub fn last_timestamp(&self) -> u64 {
+        self.last_timestamp
+    }
+
+    pub fn update_last_timestamp(&mut self, timestamp: u64) {
+        println!("[State::update_last_timestamp] updated the timestamp from {:?} to {:?}", self.last_timestamp, timestamp);
+        self.last_timestamp = timestamp;
     }
 }

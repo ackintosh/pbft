@@ -317,6 +317,15 @@ where
                         self.state.get_pre_prepare_by_key(request.view(), request.sequence_number()).unwrap();
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] client_message: {:?}", client_message_including_operation);
 
+                    // Discard requests whose timestamp is lower than the timestamp in the last reply this node sent to the client to guarantee exactly-once semantics.
+                    if client_message_including_operation.client_reqeust().timestamp() <= self.state.last_timestamp() {
+                        eprintln!(
+                            "[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] the request was discarded as its timestamp is lower than the last timestamp. last_timestamp: {:?}",
+                            self.state.last_timestamp()
+                        );
+                        return;
+                    }
+
                     // After executing the requested operation, replicas send a reply to the client.
                     let reply = ClientReply::new(
                         PeerId::from_public_key(self.keypair.public()),
@@ -324,6 +333,7 @@ where
                         &request
                     );
                     println!("[Pbft::inject_node_event] [PbftHandlerEvent::ProcessCommitRequest] reply: {:?}", reply);
+                    self.state.update_last_timestamp(reply.timestamp());
                     self.client_replies.write().unwrap().push_back(reply);
                 }
             }

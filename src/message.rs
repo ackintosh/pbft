@@ -73,6 +73,10 @@ impl ClientReply {
 }
 
 impl ClientReply {
+    pub fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+
     pub fn client_address(&self) -> SocketAddr {
         self.client.clone()
     }
