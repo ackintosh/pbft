@@ -9,7 +9,6 @@ use futures::stream::Stream;
 use std::collections::VecDeque;
 use crate::behavior::Pbft;
 
-mod config;
 mod network_behaviour_composer;
 mod handler;
 mod client_handler;
