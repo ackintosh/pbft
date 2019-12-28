@@ -33,14 +33,10 @@ fn main() {
     let client_requests = Arc::new(RwLock::new(VecDeque::new()));
     let client_replies = Arc::new(RwLock::new(VecDeque::new()));
 
-    let mut client_request_handler: Option<ClientRequestHandler> = if node_type == NodeType::Primary {
-        Some(ClientRequestHandler::new(
-            client_requests.clone(),
-            client_replies.clone(),
-        ))
-    } else {
-        None
-    };
+    let mut client_request_handler = ClientRequestHandler::new(
+        client_requests.clone(),
+        client_replies.clone(),
+    );
 
     let local_key = Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
@@ -64,9 +60,7 @@ fn main() {
                 swarm.pbft.add_client_request(client_request);
             }
 
-            if client_request_handler.is_some() {
-                client_request_handler.as_mut().unwrap().tick();
-            }
+            client_request_handler.tick();
 
             match swarm.poll().expect("Error while polling swarm") {
                 Async::Ready(Some(_)) => {}
