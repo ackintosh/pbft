@@ -1,10 +1,8 @@
-use crate::config::Port;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, RwLock};
 use std::io::{Read, Write};
 use crate::message::{ClientRequest, Message, ClientReply};
 use std::collections::VecDeque;
-use std::time::Duration;
 use crate::node_type::NodeType;
 
 pub struct ClientHandler {
@@ -81,7 +79,7 @@ impl ClientHandler {
 
                     match stream.write(reply.to_string().as_bytes()) {
                         Ok(_size) => println!("[ClientRequestHandler::tick] [ClientStreamState::PrepareToSendReply] Sent the reply to the client. reply: {:?}", reply),
-                        Err(e) => eprintln!("[ClientRequestHandler::tick] [ClientStreamState::PrepareToSendReply] Failed to send the reply to the client. reply: {:?}", reply)
+                        Err(e) => eprintln!("[ClientRequestHandler::tick] [ClientStreamState::PrepareToSendReply] Failed to send the reply to the client. error: {:?}, reply: {:?}", e, reply)
                     }
                 }
             }

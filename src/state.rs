@@ -5,7 +5,6 @@ use crate::message::{PrePrepare, Prepare, Commit};
 use libp2p::PeerId;
 
 pub struct State {
-    logs: Vec<String>,
     current_view: Arc<RwLock<View>>,
     pre_prepares: HashMap<PrePrepareKey, PrePrepare>,
     prepares: HashMap<PrepareKey, HashMap<PeerId, Prepare>>,
@@ -24,7 +23,6 @@ struct CommitKey(u64); // view
 impl State {
     pub fn new() -> Self {
         Self {
-            logs: vec![],
             current_view: Arc::new(RwLock::new(View::new())),
             pre_prepares: HashMap::new(),
             prepares: HashMap::new(),

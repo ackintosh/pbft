@@ -1,4 +1,3 @@
-use crate::config::Port;
 use crate::client_handler::ClientHandler;
 use std::sync::{Arc, RwLock};
 use crate::node_type::NodeType;
@@ -9,8 +8,6 @@ use futures::Async;
 use futures::stream::Stream;
 use std::collections::VecDeque;
 use crate::behavior::Pbft;
-use crate::message::ClientRequest;
-use std::thread::JoinHandle;
 
 mod config;
 mod network_behaviour_composer;
