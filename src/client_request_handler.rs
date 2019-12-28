@@ -7,7 +7,6 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 pub struct ClientRequestHandler {
-    port: Port,
     listener: TcpListener,
     client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
     client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
@@ -16,17 +15,14 @@ pub struct ClientRequestHandler {
 
 impl ClientRequestHandler {
     pub fn new(
-        port: Port,
         client_requests: Arc<RwLock<VecDeque<ClientRequest>>>,
         client_replies: Arc<RwLock<VecDeque<ClientReply>>>,
     ) -> Self {
-        let address = format!("127.0.0.1:{}", port.value());
-        println!("MessageHandler is listening on {}", address);
-        let listener = TcpListener::bind(address).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).expect("Cannot set non-blocking");
+        println!("[ClientRequestHandler::new] Listening on {:?}", listener.local_addr().unwrap());
 
         Self {
-            port,
             listener,
             client_requests,
             client_replies,

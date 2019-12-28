@@ -35,7 +35,6 @@ fn main() {
 
     let mut client_request_handler: Option<ClientRequestHandler> = if node_type == NodeType::Primary {
         Some(ClientRequestHandler::new(
-            "8000".into(),
             client_requests.clone(),
             client_replies.clone(),
         ))
